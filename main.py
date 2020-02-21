@@ -7,59 +7,43 @@ from telegram.ext import (
 )
 
 import config as cnf
-import messages as msg
 import markups as mrk
+import texts as txt
+import common
 from admin import admin_handler
 
 ########################
 
 logger = getLogger('bot')
 
-START, MAIN = range(1, 3)
+END, MAIN, HOW, ABOUT = range(-1, 3)
 
 
 def start(update, context):
 	update.effective_chat.send_message(
-		msg.start,
+		txt.main['message'],
 		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=mrk.start_admin
+		reply_markup=mrk.main_menu_admin
 			if update.effective_user.id in cnf.admin_id
-			else mrk.start_user
+			else mrk.main_menu_user
 	)
-	return 'MAIN'
+	context.user_data['main_level'] = MAIN
+	return MAIN
 
 
-def beginGame(update, context):
-	update.effective_chat.send_message(
-		msg.begin_game,
-		parse_mode=ParseMode.MARKDOWN
-
-	)
-	return ConversationHandler.END
+reply_args = {
+	'how'	: (HOW, txt.main['buttons']['how']['message'], mrk.how),
+	'about'	: (ABOUT, txt.main['buttons']['about']['message'], mrk.how),
+}
+common.reply_args = reply_args
 
 
-def profile(update, context):
-	update.effective_chat.send_message(
-		msg.profile,
-		parse_mode=ParseMode.MARKDOWN
-	)
-	return ConversationHandler.END
+def back(update, context):
+	return start(update, context)
 
 
-def howItWorks(update, context):
-	update.effective_chat.send_message(
-		msg.how_it_works,
-		parse_mode=ParseMode.MARKDOWN
-	)
-	return ConversationHandler.END
-
-
-def about(update, context):
-	update.effective_chat.send_message(
-		msg.about,
-		parse_mode=ParseMode.MARKDOWN
-	)
-	return ConversationHandler.END
+def again(update, context):
+	return start(update, context)
 
 
 def error(update, context):
@@ -67,13 +51,13 @@ def error(update, context):
 		"Update: {}\nError: {}, argument: {}"
 			.format(update, type(context.error).__name__, context.error)
 	)
-	update.effective_chat.send_message(msg.error)
-	return ConversationHandler.END
+	update.effective_chat.send_message(txt.error)
+	return END
 
 
 def stop(update, context):
-	update.effective_chat.send_message(msg.stop)
-	return ConversationHandler.END
+	update.effective_chat.send_message(txt.stop)
+	return END
 
 
 def main():
@@ -88,16 +72,22 @@ def main():
 			CommandHandler('start', start),
 		],
 		states={
-			'MAIN': [
-				CallbackQueryHandler(beginGame, pattern=r'^begin_game$'),
-				CallbackQueryHandler(profile, pattern=r'^profile$'),
-				CallbackQueryHandler(howItWorks, pattern=r'^how_it_works$'),
-				CallbackQueryHandler(about, pattern=r'^about$'),
+			MAIN: [
+				# begin_game_handler,
+				# profile_handler,
+				CallbackQueryHandler(
+					common.pickMenuOption,
+					pattern=r'^({})$'.format(')|('.join(reply_args.keys()))
+				),
 				admin_handler
 			],
+			HOW: [],
+			ABOUT: [],
 		},
 		fallbacks=[
+			CallbackQueryHandler(back, pattern=r'^back$'),
 			CommandHandler('stop', stop),
+			MessageHandler(Filters.all, again)
 		],
 		conversation_timeout=3600
 	)
