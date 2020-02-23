@@ -9,19 +9,20 @@ from telegram.ext import (
 import config as cnf
 import markups as mrk
 import texts as txt
-import common
+import menu_template as menu
 from admin import admin_handler
 
 ########################
 
 logger = getLogger('bot')
 
-END, MAIN, HOW, ABOUT = range(-1, 3)
+END = -1
+MAIN = 0
 
 
 def start(update, context):
 	update.effective_chat.send_message(
-		txt.main['message'],
+		txt.main['msg'],
 		parse_mode=ParseMode.MARKDOWN,
 		reply_markup=mrk.main_menu_admin
 			if update.effective_user.id in cnf.admin_id
@@ -31,19 +32,52 @@ def start(update, context):
 	return MAIN
 
 
-reply_args = {
-	'how'	: (HOW, txt.main['buttons']['how']['message'], mrk.how),
-	'about'	: (ABOUT, txt.main['buttons']['about']['message'], mrk.how),
+main_menu = {
+	'main': {
+		'message'	: txt.main['msg'],
+		'keyboard'	: mrk.main_menu_admin,
+	},
+	'matches': {
+		'message'	: txt.matches['msg'],
+		'keyboard'	: mrk.main_menu_admin,
+		'back'		: 'main'
+	},
+	'room': {
+		'message'	: txt.main['next']['room']['msg'],
+		'keyboard'	: mrk.main_menu_admin,
+		'back'		: 'main'
+	},
+	'profile': {
+		'message'	: txt.profile['msg'],
+		'keyboard'	: mrk.main_menu_admin,
+		'back'		: 'main'
+	},
+	'how': {
+		'message'	: txt.main['next']['how']['msg'],
+		'keyboard'	: mrk.how,
+		'back'		: 'main'
+	},
+	'points': {
+		'message'	: txt.main['next']['how']['next']['points']['msg'],
+		'keyboard'	: mrk.how,
+		'back'		: 'how'
+	},
+	'service': {
+		'message'	: txt.main['next']['how']['next']['service']['msg'],
+		'keyboard'	: mrk.how,
+		'back'		: 'how'
+	},
+	'faq': {
+		'message'	: txt.main['next']['how']['next']['faq']['msg'],
+		'keyboard'	: mrk.how,
+		'back'		: 'how'
+	},
+	'about': {
+		'message'	: txt.main['next']['about']['msg'],
+		'keyboard'	: mrk.about,
+		'back'		: 'main'
+	}
 }
-common.reply_args = reply_args
-
-
-def back(update, context):
-	return start(update, context)
-
-
-def again(update, context):
-	return start(update, context)
 
 
 def error(update, context):
@@ -67,30 +101,9 @@ def main():
 	)
 	dispatcher = updater.dispatcher
 
-	main_handler = ConversationHandler(
-		entry_points=[
-			CommandHandler('start', start),
-		],
-		states={
-			MAIN: [
-				# begin_game_handler,
-				# profile_handler,
-				CallbackQueryHandler(
-					common.pickMenuOption,
-					pattern=r'^({})$'.format(')|('.join(reply_args.keys()))
-				),
-				admin_handler
-			],
-			HOW: [],
-			ABOUT: [],
-		},
-		fallbacks=[
-			CallbackQueryHandler(back, pattern=r'^back$'),
-			CommandHandler('stop', stop),
-			MessageHandler(Filters.all, again)
-		],
-		conversation_timeout=3600
-	)
+	main_handler = menu.createConversationHandler(main_menu['main'], main_menu)
+	main_handler.entry_points = [CommandHandler('start', start)]
+	main_handler.states['main'].append(admin_handler)
 
 	dispatcher.add_handler(main_handler)
 	dispatcher.add_error_handler(error)
