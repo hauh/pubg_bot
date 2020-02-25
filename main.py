@@ -7,6 +7,7 @@ import config
 import texts
 import menu
 import matches
+import rooms
 
 ########################
 
@@ -34,6 +35,7 @@ def main():
 	dispatcher.add_handler(CallbackQueryHandler(menu.mainMenu, pattern=r'^main$'))
 	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_handler(matches.handler)
+	dispatcher.add_handler(rooms.handler)
 	dispatcher.add_handler(menu.MenuHandler(texts.menu))
 	dispatcher.add_error_handler(error)
 

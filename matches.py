@@ -8,7 +8,7 @@ import menu
 
 #######################
 
-logger = getLogger('matches')
+logger = getLogger(__name__)
 FILTERS, SETTING = range(0, 2)
 
 

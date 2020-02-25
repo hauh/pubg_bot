@@ -1,37 +1,11 @@
 import config
 
-from telegram import (
-	Update, ParseMode,
-	InlineKeyboardButton, InlineKeyboardMarkup
-)
+from telegram import Update
 from telegram.ext import Handler
 
 import texts
 
 ###################
-
-
-def createButton(button_msg, button_key):
-	return InlineKeyboardButton(
-		button_msg,
-		callback_data=button_key
-	)
-
-
-def createKeyboard(menu, extra):
-	choices = []
-	if 'next' in menu:
-		for button_key, button_data in menu['next'].items():
-			choices.append([createButton(button_data['btn'], button_key)])
-	for button_key, button_data in extra.items():
-		choices.append([createButton(button_data['btn'], button_key)])
-	if menu != texts.menu:
-		navigation = [
-			createButton(texts.back, 'back'),
-			createButton(texts.main, 'main'),
-		]
-		choices.append(navigation)
-	return InlineKeyboardMarkup(choices)
 
 
 def sendMessage(update, context, next_state, menu, extra={}, msg_format={}):
@@ -72,7 +46,9 @@ class MenuHandler(Handler):
 		super(MenuHandler, self).__init__(callback=None)
 
 	def check_update(self, update):
-		return True if isinstance(update, Update) else False
+		if isinstance(update, Update) and update.effective_chat.type == 'private':
+			return True
+		return False
 
 	def _findMenu(self, menu, next_state):
 		try:
@@ -86,9 +62,11 @@ class MenuHandler(Handler):
 		return None
 
 	def handle_update(self, update, dispatcher, check_result, context=None):
-		print(update.callback_query.data)
 		if not update.callback_query:
-			next_state = context.user_data['conv_history'][-1]
+			if 'conv_history' in context.user_data:
+				next_state = context.user_data['conv_history'][-1]
+			else:
+				return mainMenu(update, context)
 		else:
 			next_state = update.callback_query.data
 		menu = self._findMenu(self.menu, next_state)

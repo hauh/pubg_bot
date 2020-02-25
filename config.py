@@ -5,6 +5,7 @@ from os import getenv
 bot_token = getenv('TG_TOKEN')
 log_name = 'pubg_bot.log'
 admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
+battle_chat = getenv('BATTLE_CHAT_LINK')
 
 # api
 
