@@ -5,7 +5,6 @@ menu = {
 menu['next'] = {
 	'matches': {
 		'btn': "График матчей",
-		'msg': "Список матчей здесь",
 	},
 	'room': {
 		'btn': "Горячая комната",
@@ -30,7 +29,16 @@ menu['next'] = {
 }
 
 # matches
-menu['next']['matches']['next'] = {
+matches = {
+	'msg': (
+		"Здесь список матчей\n\n"
+		"Режим: {mode}\n"
+		"Вид: {view}\n"
+		"Ставка: {bet}"
+	),
+	'default': "все"
+}
+matches['next'] = {
 	'mode': {
 		'msg': "Выберите **РЕЖИМ** игры",
 		'btn': "Выбрать режим",
@@ -44,7 +52,7 @@ menu['next']['matches']['next'] = {
 		'btn': "Выбрать ставку",
 	},
 }
-menu['next']['matches']['next']['mode']['next'] = {
+matches['next']['mode']['next'] = {
 	'solo': {
 		'btn': "SOLO"
 	},
@@ -55,7 +63,7 @@ menu['next']['matches']['next']['mode']['next'] = {
 		'btn': "SQUAD"
 	},
 }
-menu['next']['matches']['next']['view']['next'] = {
+matches['next']['view']['next'] = {
 	'1st': {
 		'btn': "От 1-го лица"
 	},
@@ -63,7 +71,7 @@ menu['next']['matches']['next']['view']['next'] = {
 		'btn': "От 3-го лица"
 	},
 }
-menu['next']['matches']['next']['bet']['next'] = {
+matches['next']['bet']['next'] = {
 	'30': {
 		'btn': "30"
 	},
@@ -73,6 +81,11 @@ menu['next']['matches']['next']['bet']['next'] = {
 	'90': {
 		'btn': "90"
 	},
+}
+reset = {
+	'reset': {
+		'btn': "Сбросить фильтры"
+	}
 }
 
 # room

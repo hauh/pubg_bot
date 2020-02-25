@@ -1,30 +1,16 @@
 from logging import getLogger
 
 from telegram import ParseMode
-from telegram.ext import (
-	Updater, ConversationHandler, CommandHandler,
-	MessageHandler, CallbackQueryHandler, Filters
-)
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
-import config as cnf
-import texts as txt
-import menu as menu
+import config
+import texts
+import menu
+import matches
 
 ########################
 
 logger = getLogger('bot')
-
-
-def start(update, context):
-	if update.callback_query:
-		update.callback_query.message.delete()
-	update.effective_chat.send_message(
-		txt.menu['msg'],
-		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=menu.createKeyboard(txt.menu)
-	)
-	context.user_data['conv_history'] = ['main']
-	return 'main'
 
 
 def error(update, context):
@@ -32,19 +18,23 @@ def error(update, context):
 		"Update: {}\nError: {}, argument: {}"
 			.format(update, type(context.error).__name__, context.error)
 	)
-	update.effective_chat.send_message(txt.error)
-	return ConversationHandler.END
+	update.effective_chat.send_message(texts.error)
+	update.effective_chat.send_message(texts.error)
+	return -1
 
 
 def main():
 	updater = Updater(
-		token=cnf.bot_token,
+		token=config.bot_token,
 		use_context=True,
 	)
 	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(CommandHandler('start', start))
-	dispatcher.add_handler(menu.MenuHandler(txt.menu))
+	dispatcher.add_handler(CommandHandler('start', menu.mainMenu))
+	dispatcher.add_handler(CallbackQueryHandler(menu.mainMenu, pattern=r'^main$'))
+	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
+	dispatcher.add_handler(matches.handler)
+	dispatcher.add_handler(menu.MenuHandler(texts.menu))
 	dispatcher.add_error_handler(error)
 
 	logger.info('Bot started')
