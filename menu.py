@@ -1,20 +1,23 @@
-import config
+from logging import getLogger
 
-from telegram import Update
+from telegram import Update, ParseMode, InlineKeyboardMarkup
 from telegram.ext import Handler
 
+import config
 import texts
 
 ###################
 
+logger = getLogger(__name__)
 
-def sendMessage(update, context, next_state, menu, extra={}, msg_format={}):
+
+def sendMessage(update, context, next_state, message, buttons):
 	if update.callback_query:
 		update.callback_query.message.delete()
 	update.effective_chat.send_message(
-		menu['msg'].format(**msg_format),
+		message,
 		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=createKeyboard(menu, extra)
+		reply_markup=InlineKeyboardMarkup([*buttons])
 	)
 	if next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
@@ -24,9 +27,10 @@ def sendMessage(update, context, next_state, menu, extra={}, msg_format={}):
 def mainMenu(update, context):
 	context.user_data['conv_history'] = []
 	sendMessage(
-		update, context, 'main', texts.menu,
-		extra=texts.admin_option
-			if update.effective_user.id in config.admin_id else {}
+		update, context, 'main', texts.main_menu['msg'],
+		(texts.main_menu['extra_buttons']
+			if update.effective_user.id in config.admin_id else None,
+			texts.main_menu['buttons'])
 	)
 	return -1
 
@@ -35,7 +39,7 @@ def back(update, context):
 	if len(context.user_data['conv_history']) < 2:
 		return mainMenu(update, context)
 	context.user_data['conv_history'].pop()
-	update.callback_query.data = context.user_data['conv_history'].pop()
+	update.callback_query.data = context.user_data['conv_history'][-1]
 	return context.dispatcher.process_update(update)
 
 

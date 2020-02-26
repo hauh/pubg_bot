@@ -1,34 +1,57 @@
 from logging import getLogger
 
-from telegram import ParseMode
+from telegram import ParseMode, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler, CallbackQueryHandler
 
 import texts
 import menu
+import database
+import buttons
 
 #######################
 
 logger = getLogger(__name__)
 FILTERS, SETTING = range(0, 2)
+filter_types = ['mode', 'view', 'bet']
 
 
 def matchesStart(update, context):
-	msg_format = {}
+	filters = {
+		filter_type: context.user_data[filter_type]
+			if filter_type in context.user_data else None
+		for filter_type in filter_types
+	}
+	matches_buttons = []
+	matches_found = database.getMatches(filters)
+	if matches_found:
+		for match in matches_found:
+			matches_buttons.append(
+				[buttons.createButton(
+					"{} - {} - {}".format(
+						texts.matches['next']['mode']['next'][match[1]]['btn'],
+						texts.matches['next']['view']['next'][match[2]]['btn'],
+						texts.matches['next']['bet']['next'][match[3]]['btn']
+					),
+					"match{}".format(match[0])
+				)]
+			)
+
 	show_reset = False
-	for filter_type in texts.matches['next'].keys():
-		if filter_type in context.user_data:
-			filter_value = (
+	for filter_type, filter_value in filters.items():
+		if filter_value:
+			filters[filter_type] = (
 				texts.matches['next'][filter_type]['next']
 				[context.user_data[filter_type]]['btn']
 			)
 			show_reset = True
 		else:
-			filter_value = texts.matches['default']
-		msg_format.update({filter_type: filter_value})
+			filters[filter_type] = texts.matches['default']
+	filters.update({'found': len(matches_found) if matches_found else 0})
+
 	menu.sendMessage(
 		update, context, 'matches', texts.matches,
-		extra=texts.reset if show_reset else {},
-		msg_format=msg_format
+		extra=matches_buttons + texts.matches['extra_buttons'],
+		msg_format=filters
 	)
 	return FILTERS
 
@@ -62,9 +85,10 @@ handler = ConversationHandler(
 	states={
 		FILTERS: [
 			CallbackQueryHandler(resetFilters, pattern=r'^reset$'),
+			# CallbackQueryHandler(matchesList, pattern=r'^matches_list$'),
 			CallbackQueryHandler(
 				chooseFilter,
-				pattern=r'^({})$'.format(')|('.join(texts.matches['next'].keys()))
+				pattern=r'^({})$'.format(')|('.join(filter_types))
 			),
 		],
 		SETTING: [

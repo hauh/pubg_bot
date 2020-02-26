@@ -7,6 +7,15 @@ log_name = 'pubg_bot.log'
 admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
 battle_chat = getenv('BATTLE_CHAT_LINK')
 
+# db
+db_kwargs = {
+	'host'		: getenv('DB_ADDRESS'),
+	'user'		: getenv('DB_USER'),
+	'password'	: getenv('DB_PASS'),
+	'db'		: getenv('DB_NAME'),
+	'charset'	: 'utf8mb4',
+}
+
 # api
 
 # logger

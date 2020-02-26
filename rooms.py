@@ -21,11 +21,9 @@ def roomsStart(update, context):
 
 
 def battleChat(update, context):
-	keyboard = menu.createKeyboard(texts.rooms, {})
-	keyboard.inline_keyboard[0][0].url = config.battle_chat
 	update.effective_chat.send_message(
 		"HELLO",
-		reply_markup=keyboard
+		# reply_markup=keyboard
 	)
 	return -1
 

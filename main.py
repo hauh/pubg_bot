@@ -5,9 +5,11 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
 import config
 import texts
+import buttons
 import menu
 import matches
 import rooms
+import database
 
 ########################
 
@@ -25,6 +27,9 @@ def error(update, context):
 
 
 def main():
+	buttons.prepareMenu()
+	database.prepareDB()
+
 	updater = Updater(
 		token=config.bot_token,
 		use_context=True,
@@ -36,7 +41,7 @@ def main():
 	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_handler(matches.handler)
 	dispatcher.add_handler(rooms.handler)
-	dispatcher.add_handler(menu.MenuHandler(texts.menu))
+	dispatcher.add_handler(menu.MenuHandler(texts.main_menu))
 	dispatcher.add_error_handler(error)
 
 	logger.info('Bot started')
