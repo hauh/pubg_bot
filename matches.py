@@ -11,23 +11,30 @@ import buttons
 #######################
 
 logger = getLogger(__name__)
-FILTERS, SETTING = range(0, 2)
+MATCHES, SETTING = range(0, 2)
 filter_types = ['mode', 'view', 'bet']
 
 
-def matchesStart(update, context):
+def matchesMain(update, context):
 	filters = {
-		filter_type: context.user_data[filter_type]
-			if filter_type in context.user_data else None
-		for filter_type in filter_types
+		f_type: context.user_data[f_type]
+			if f_type in context.user_data else None
+		for f_type in filter_types
 	}
+
 	matches_buttons = []
+	if 'match' in context.user_data:
+		chosen_match = context.user_data['match']
+		matches_buttons.append(texts.matches['extra']['clear_choice']['button'])
+	else:
+		chosen_match = texts.matches['default']
 	matches_found = database.getMatches(filters)
 	if matches_found:
 		for match in matches_found:
 			matches_buttons.append(
 				[buttons.createButton(
-					"{} - {} - {}".format(
+					"{} - {} - {} - {}".format(
+						match[0],
 						texts.matches['next']['mode']['next'][match[1]]['btn'],
 						texts.matches['next']['view']['next'][match[2]]['btn'],
 						texts.matches['next']['bet']['next'][match[3]]['btn']
@@ -35,39 +42,52 @@ def matchesStart(update, context):
 					"match{}".format(match[0])
 				)]
 			)
-
-	show_reset = False
-	for filter_type, filter_value in filters.items():
-		if filter_value:
-			filters[filter_type] = (
-				texts.matches['next'][filter_type]['next']
-				[context.user_data[filter_type]]['btn']
-			)
-			show_reset = True
-		else:
-			filters[filter_type] = texts.matches['default']
-	filters.update({'found': len(matches_found) if matches_found else 0})
+		found = len(matches_found)
+	else:
+		found = 0
+	if any(filters.values()):
+		matches_buttons.append(texts.matches['extra']['reset']['button'])
 
 	menu.sendMessage(
-		update, context, 'matches', texts.matches,
-		extra=matches_buttons + texts.matches['extra_buttons'],
-		msg_format=filters
+		update, context, 'matches',
+		texts.matches['msg'].format(
+			**{f_type: texts.matches['next'][f_type]['next'][filters[f_type]]['btn']
+						if filters[f_type] else texts.matches['default']
+						for f_type in filter_types},
+			found=found,
+			chosen_match=chosen_match
+		),
+		matches_buttons, texts.matches['buttons'],
 	)
-	return FILTERS
+	return MATCHES
+
+
+def chooseMatch(update, context):
+	match_id = update.callback_query.data.lstrip('match')
+	context.user_data['match'] = match_id
+	update.callback_query.answer(texts.match_is_chosen.format(match_id))
+	return matchesMain(update, context)
+
+
+def clearMatchChoice(update, context):
+	if 'match' in context.user_data:
+		del context.user_data['match']
+	return matchesMain(update, context)
 
 
 def resetFilters(update, context):
 	for filter_type in texts.matches['next'].keys():
 		if filter_type in context.user_data:
 			del context.user_data[filter_type]
-	return matchesStart(update, context)
+	return matchesMain(update, context)
 
 
 def chooseFilter(update, context):
 	next_state = update.callback_query.data
 	menu.sendMessage(
 		update, context, next_state,
-		texts.matches['next'][next_state]
+		texts.matches['next'][next_state]['msg'],
+		texts.matches['next'][next_state]['buttons']
 	)
 	return SETTING
 
@@ -75,17 +95,18 @@ def chooseFilter(update, context):
 def getFilterSetting(update, context):
 	filter_type = context.user_data['conv_history'].pop()
 	context.user_data[filter_type] = update.callback_query.data
-	return matchesStart(update, context)
+	return matchesMain(update, context)
 
 
 handler = ConversationHandler(
 	entry_points=[
-		CallbackQueryHandler(matchesStart, pattern=r'^matches$')
+		CallbackQueryHandler(matchesMain, pattern=r'^matches$')
 	],
 	states={
-		FILTERS: [
+		MATCHES: [
+			CallbackQueryHandler(chooseMatch, pattern=r'^match[0-9]+$'),
+			CallbackQueryHandler(clearMatchChoice, pattern=r'^clear_choice$'),
 			CallbackQueryHandler(resetFilters, pattern=r'^reset$'),
-			# CallbackQueryHandler(matchesList, pattern=r'^matches_list$'),
 			CallbackQueryHandler(
 				chooseFilter,
 				pattern=r'^({})$'.format(')|('.join(filter_types))

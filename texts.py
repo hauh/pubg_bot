@@ -37,7 +37,8 @@ matches = {
 		"*Режим*: {mode}\n"
 		"*Вид*: {view}\n"
 		"*Ставка*: {bet}\n\n"
-		"*Найдено матчей*: {found}"
+		"*Найдено матчей*: {found}\n\n"
+		"*Выбранный матч*: {chosen_match}"
 	),
 	'default': "все",
 	'depth': 1
@@ -59,7 +60,10 @@ matches['next'] = {
 matches['extra'] = {
 	'reset': {
 		'btn': "Сбросить фильтры"
-	}
+	},
+	'clear_choice': {
+		'btn': "Очистить выбор матча"
+	},
 }
 matches['next']['mode']['next'] = {
 	'solo': {
@@ -91,6 +95,8 @@ matches['next']['bet']['next'] = {
 		'btn': "90"
 	},
 }
+match_is_chosen =\
+	"Матч {} выбран. За 15 минут до начала потребуется подверждение готовности."
 
 # rooms
 rooms = {

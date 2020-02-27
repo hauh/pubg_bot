@@ -11,13 +11,13 @@ import texts
 logger = getLogger(__name__)
 
 
-def sendMessage(update, context, next_state, message, buttons):
+def sendMessage(update, context, next_state, message, buttons, extra_btns=[]):
 	if update.callback_query:
 		update.callback_query.message.delete()
 	update.effective_chat.send_message(
 		message,
 		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=InlineKeyboardMarkup([*buttons])
+		reply_markup=InlineKeyboardMarkup([*buttons, *extra_btns])
 	)
 	if next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
@@ -28,9 +28,9 @@ def mainMenu(update, context):
 	context.user_data['conv_history'] = []
 	sendMessage(
 		update, context, 'main', texts.main_menu['msg'],
-		(texts.main_menu['extra_buttons']
-			if update.effective_user.id in config.admin_id else None,
-			texts.main_menu['buttons'])
+		texts.main_menu['buttons'],
+		[texts.main_menu['extra']['admin']['button']]
+			if update.effective_user.id in config.admin_id else []
 	)
 	return -1
 
@@ -76,4 +76,4 @@ class MenuHandler(Handler):
 		menu = self._findMenu(self.menu, next_state)
 		if not menu:
 			return mainMenu(update, context)
-		return sendMessage(update, context, next_state, menu)
+		return sendMessage(update, context, next_state, menu['msg'], menu['buttons'])

@@ -20,15 +20,15 @@ def generateButtons(menu):
 			menu['buttons'].append([createButton(button_data['btn'], button_key)])
 			generateButtons(button_data)
 	depth = menu['depth'] if 'depth' in menu else 2
-	# if depth:
-	# 	navigation = [createButton(texts.back, 'back')]
-	# 	if depth > 1:
-	# 		navigation.append(createButton(texts.main, 'main'))
-	# 	menu['buttons'].append(navigation)
+	if depth:
+		navigation = [createButton(texts.back, 'back')]
+		if depth > 1:
+			navigation.append(createButton(texts.main, 'main'))
+		menu['buttons'].append(navigation)
 	if 'extra' in menu:
-		menu['extra_buttons'] = []
 		for button_key, button_data in menu['extra'].items():
-			menu['extra_buttons'].append([createButton(button_data['btn'], button_key)])
+			menu['extra'][button_key]['button'] =\
+				[createButton(button_data['btn'], button_key)]
 
 
 def prepareMenu():
@@ -37,4 +37,4 @@ def prepareMenu():
 			menu = getattr(texts, menu_name)
 			if type(menu) is dict:
 				generateButtons(menu)
-	# texts.rooms['buttons'][0][0].url = config.battle_chat
+	texts.rooms['buttons'][0][0].url = config.battle_chat
