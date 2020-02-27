@@ -27,6 +27,8 @@ def generateButtons(menu):
 		menu['buttons'].append(navigation)
 	if 'extra' in menu:
 		for button_key, button_data in menu['extra'].items():
+			if 'next' in button_data:
+				generateButtons(button_data)
 			menu['extra'][button_key]['button'] =\
 				[createButton(button_data['btn'], button_key)]
 

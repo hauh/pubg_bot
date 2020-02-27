@@ -1,6 +1,5 @@
 from logging import getLogger
 
-from telegram import ParseMode
 from telegram.ext import ConversationHandler, CallbackQueryHandler
 
 import config
@@ -11,31 +10,35 @@ import menu
 
 logger = getLogger(__name__)
 ROOMS = 0
+HOT = 1
 
 
-def roomsStart(update, context):
+def roomsMain(update, context):
 	menu.sendMessage(
-		update, context, 'rooms', texts.rooms
+		update, context, 'rooms',
+		texts.rooms['msg'], texts.rooms['buttons']
 	)
 	return ROOMS
 
 
-def battleChat(update, context):
-	update.effective_chat.send_message(
-		"HELLO",
-		# reply_markup=keyboard
+def hotRooms(update, context):
+	menu.sendMessage(
+		update, context, 'hot_rooms',
+		texts.rooms['next']['hot_rooms']['msg'],
+		texts.rooms['next']['hot_rooms']['buttons']
 	)
-	return -1
+	return HOT
 
 
 handler = ConversationHandler(
 	entry_points=[
-		CallbackQueryHandler(roomsStart, pattern=r'^rooms$')
+		CallbackQueryHandler(roomsMain, pattern=r'^rooms$')
 	],
 	states={
 		ROOMS: [
-			CallbackQueryHandler(battleChat, pattern=r'^battle_chat$')
-		]
+			CallbackQueryHandler(hotRooms, pattern=r'^hot_rooms$')
+		],
+		HOT: []
 	},
 	fallbacks=[],
 	allow_reentry=True

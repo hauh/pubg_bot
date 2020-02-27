@@ -36,9 +36,7 @@ matches = {
 	'msg': (
 		"*Режим*: {mode}\n"
 		"*Вид*: {view}\n"
-		"*Ставка*: {bet}\n\n"
-		"*Найдено матчей*: {found}\n\n"
-		"*Выбранный матч*: {chosen_match}"
+		"*Ставка*: {bet}\n"
 	),
 	'default': "все",
 	'depth': 1
@@ -61,8 +59,18 @@ matches['extra'] = {
 	'reset': {
 		'btn': "Сбросить фильтры"
 	},
-	'clear_choice': {
-		'btn': "Очистить выбор матча"
+	'choose_match': {
+		'btn': "Выбрать матч",
+		'msg': (
+			"Найдено матчей: {}\n\n"
+			"Выбранный матч: {}"
+		),
+		'default': "не выбран"
+	},
+}
+matches['extra']['choose_match']['next'] = {
+	'unset': {
+		'btn': "Сбросить"
 	},
 }
 matches['next']['mode']['next'] = {
@@ -74,6 +82,12 @@ matches['next']['mode']['next'] = {
 	},
 	'squad': {
 		'btn': "SQUAD"
+	},
+	'payload': {
+		'btn': "Payload"
+	},
+	'zombie': {
+		'btn': "Zombie"
 	},
 }
 matches['next']['view']['next'] = {
@@ -94,6 +108,15 @@ matches['next']['bet']['next'] = {
 	'90': {
 		'btn': "90"
 	},
+}
+pubg_id_not_set = {
+	'msg': "Сначала надо установить свой PUBG ID в профиле",
+	'depth': 1,
+	'next': {
+		'profile': {
+			'btn': "Личный кабинет",
+		},
+	}
 }
 match_is_chosen =\
 	"Матч {} выбран. За 15 минут до начала потребуется подверждение готовности."
@@ -118,24 +141,24 @@ profile = {
 	'msg': (
 		"*КАБИНЕТ*\n\n"
 		"PUBG ID: {}\n"
-		"Статистика в боте {}"
 	),
 	'depth': 1
 }
 profile['next'] = {
-	'top_up': {
+	'add_funds': {
 		'btn': "Пополнить баланс",
 		'msg': "Укажите сумму пополнения",
 	},
-	'payout': {
+	'withdraw_funds': {
 		'btn': "Вывести средства",
 		'msg': "Укажите сумму вывода",
 	},
-	'set_pubdg_id': {
+	'set_pubg_id': {
 		'btn': "Установить PUBG ID",
 		'msg': "Введите PUBG ID",
 	},
 }
+# profile['next']['set_pubg_id']['msg']:
 
 # how
 main_menu['next']['how']['next'] = {

@@ -1,6 +1,5 @@
 from logging import getLogger
 
-from telegram import ParseMode, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler, CallbackQueryHandler
 
 import texts
@@ -11,24 +10,26 @@ import buttons
 #######################
 
 logger = getLogger(__name__)
-MATCHES, SETTING = range(0, 2)
+FILTERS, SETTING, PICK = range(0, 3)
 filter_types = ['mode', 'view', 'bet']
 
 
-def matchesMain(update, context):
-	filters = {
-		f_type: context.user_data[f_type]
-			if f_type in context.user_data else None
-		for f_type in filter_types
-	}
+def matchesList(update, context):
+	current_menu = texts.matches['extra']['choose_match']
 
 	matches_buttons = []
 	if 'match' in context.user_data:
 		chosen_match = context.user_data['match']
-		matches_buttons.append(texts.matches['extra']['clear_choice']['button'])
+		matches_buttons.append(current_menu['extra']['unset']['button'])
 	else:
-		chosen_match = texts.matches['default']
-	matches_found = database.getMatches(filters)
+		chosen_match = current_menu['default']
+		show_unset_button = False
+
+	matches_found = database.getMatches({
+		filter_type: context.user_data[filter_type]
+			if filter_type in context.user_data else None
+			for filter_type in filter_types
+	})
 	if matches_found:
 		for match in matches_found:
 			matches_buttons.append(
@@ -45,34 +46,61 @@ def matchesMain(update, context):
 		found = len(matches_found)
 	else:
 		found = 0
-	if any(filters.values()):
-		matches_buttons.append(texts.matches['extra']['reset']['button'])
 
 	menu.sendMessage(
 		update, context, 'matches',
-		texts.matches['msg'].format(
-			**{f_type: texts.matches['next'][f_type]['next'][filters[f_type]]['btn']
-						if filters[f_type] else texts.matches['default']
-						for f_type in filter_types},
-			found=found,
-			chosen_match=chosen_match
-		),
-		matches_buttons, texts.matches['buttons'],
+		current_menu['msg'].format(found, chosen_match),
+		current_menu['buttons'],
+		matches_buttons
 	)
-	return MATCHES
+	return PICK
 
 
-def chooseMatch(update, context):
+def unsetMatch(update, context):
+	if 'match' in context.user_data:
+		del context.user_data['match']
+	return matchesMain(update, context)
+
+
+def pickMatch(update, context):
 	match_id = update.callback_query.data.lstrip('match')
 	context.user_data['match'] = match_id
 	update.callback_query.answer(texts.match_is_chosen.format(match_id))
 	return matchesMain(update, context)
 
 
-def clearMatchChoice(update, context):
-	if 'match' in context.user_data:
-		del context.user_data['match']
-	return matchesMain(update, context)
+def matchesMain(update, context):
+	# if 'pubg_id' not in context.user_data:
+	# 	return menu.sendMessage(
+	# 		update, context, 'matches',
+	# 		texts.pubg_id_not_set['msg'],
+	# 		texts.pubg_id_not_set['buttons']
+	# 	)
+
+	filters_set = 0
+	msg_format = {}
+	for filter_type in filter_types:
+		if filter_type in context.user_data:
+			filters_set += 1
+			msg_format.update({
+				filter_type: texts.matches['next'][filter_type]['next']
+								[context.user_data[filter_type]]['btn']
+			})
+		else:
+			msg_format.update({filter_type: texts.matches['default']})
+	if filters_set > 0:
+		if filters_set == 3:
+			return matchesList(update, context)
+		show_reset = True
+	else:
+		show_reset = False
+	menu.sendMessage(
+		update, context, 'matches',
+		texts.matches['msg'].format(**msg_format),
+		texts.matches['buttons'],
+		[texts.matches['extra']['reset']['button']] if show_reset else []
+	)
+	return FILTERS
 
 
 def resetFilters(update, context):
@@ -103,9 +131,7 @@ handler = ConversationHandler(
 		CallbackQueryHandler(matchesMain, pattern=r'^matches$')
 	],
 	states={
-		MATCHES: [
-			CallbackQueryHandler(chooseMatch, pattern=r'^match[0-9]+$'),
-			CallbackQueryHandler(clearMatchChoice, pattern=r'^clear_choice$'),
+		FILTERS: [
 			CallbackQueryHandler(resetFilters, pattern=r'^reset$'),
 			CallbackQueryHandler(
 				chooseFilter,
@@ -122,6 +148,10 @@ handler = ConversationHandler(
 				)
 			)
 		],
+		PICK: [
+			CallbackQueryHandler(unsetMatch, pattern=r'^unset$'),
+			CallbackQueryHandler(pickMatch, pattern=r'^match[0-9]+$'),
+		]
 	},
 	fallbacks=[],
 	allow_reentry=True

@@ -13,11 +13,14 @@ logger = getLogger(__name__)
 
 def sendMessage(update, context, next_state, message, buttons, extra_btns=[]):
 	if update.callback_query:
-		update.callback_query.message.delete()
+		try:
+			update.callback_query.message.delete()
+		except Exception:
+			pass
 	update.effective_chat.send_message(
 		message,
 		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=InlineKeyboardMarkup([*buttons, *extra_btns])
+		reply_markup=InlineKeyboardMarkup([*extra_btns, *buttons])
 	)
 	if next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
