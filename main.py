@@ -22,11 +22,11 @@ def error(update, context):
 			.format(update, type(context.error).__name__, context.error)
 	)
 	update.effective_chat.send_message(texts.error)
-	return -1
+	return menu.mainMenu(update, context)
 
 
 def main():
-	buttons.prepareMenu()
+	buttons.generateButtons(texts.menu)
 	database.prepareDB()
 
 	updater = Updater(
@@ -41,7 +41,7 @@ def main():
 	dispatcher.add_handler(matches.handler)
 	dispatcher.add_handler(rooms.handler)
 	dispatcher.add_handler(profile.handler)
-	dispatcher.add_handler(menu.MenuHandler(texts.main_menu))
+	dispatcher.add_handler(menu.MenuHandler(texts.menu))
 	dispatcher.add_error_handler(error)
 
 	logger.info('Bot started')

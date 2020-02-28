@@ -11,7 +11,7 @@ import texts
 logger = getLogger(__name__)
 
 
-def sendMessage(update, context, next_state, message, buttons, extra_btns=[]):
+def sendMessage(update, context, message, buttons, next_state=None):
 	if update.callback_query:
 		try:
 			update.callback_query.message.delete()
@@ -20,9 +20,9 @@ def sendMessage(update, context, next_state, message, buttons, extra_btns=[]):
 	update.effective_chat.send_message(
 		message,
 		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=InlineKeyboardMarkup([*extra_btns, *buttons])
+		reply_markup=InlineKeyboardMarkup(buttons)
 	)
-	if next_state not in context.user_data['conv_history']:
+	if next_state and next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
 	return next_state
 
@@ -30,10 +30,11 @@ def sendMessage(update, context, next_state, message, buttons, extra_btns=[]):
 def mainMenu(update, context):
 	context.user_data['conv_history'] = []
 	sendMessage(
-		update, context, 'main', texts.main_menu['msg'],
-		texts.main_menu['buttons'],
-		[texts.main_menu['extra']['admin']['button']]
-			if update.effective_user.id in config.admin_id else []
+		update, context,
+		texts.menu['msg'],
+		texts.menu['buttons'] if update.effective_user.id in config.admin_id
+			else texts.menu['buttons'][1:],
+		'main'
 	)
 	return -1
 

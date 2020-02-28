@@ -13,24 +13,25 @@ import menu
 #######################
 
 logger = getLogger(__name__)
-PROFILE = 0
-SET_ID = 1
+PROFILE, SET_ID = range(0, 2)
+profile_menu = texts.menu['next']['profile']
 
 
 def profileMain(update, context):
 	menu.sendMessage(
-		update, context, 'profile',
-		texts.profile['msg'].format(
+		update, context,
+		profile_menu['msg'].format(
 			context.user_data['pubg_id'] if 'pubg_id' in context.user_data else '-'),
-		texts.profile['buttons']
+		profile_menu['buttons'],
+		'profile'
 	)
 	return PROFILE
 
 
 def setPubgID(update, context):
-	current_menu = texts.profile['next']['set_pubg_id']
+	current_menu = profile_menu['next']['set_pubg_id']
 	menu.sendMessage(
-		update, context, 'set_pubg_id',
+		update, context,
 		current_menu['msg'],
 		current_menu['buttons']
 	)

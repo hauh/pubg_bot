@@ -1,4 +1,5 @@
 from logging import getLogger
+from itertools import chain
 
 from telegram.ext import ConversationHandler, CallbackQueryHandler
 
@@ -10,21 +11,59 @@ import buttons
 #######################
 
 logger = getLogger(__name__)
-FILTERS, SETTING, PICK = range(0, 3)
+MATCHES, PICK, FILTERS = range(0, 3)
 filter_types = ['mode', 'view', 'bet']
+matches_menu = texts.menu['next']['matches']
+
+
+def matchesMain(update, context):
+	# if 'pubg_id' not in context.user_data:
+	# 	return menu.sendMessage(
+	# 		update, context, 'matches',
+	# 		texts.pubg_id_not_set['msg'],
+	# 		texts.pubg_id_not_set['buttons']
+	# 	)
+
+	if any(filter_type in context.user_data for filter_type in filter_types):
+		show_reset = True
+	else:
+		show_reset = False
+
+	msg_format = {
+		filter_type: matches_menu['next'][filter_type]['next']
+						[context.user_data[filter_type]]['btn']
+				if filter_type in context.user_data
+				else matches_menu['default']
+			for filter_type in filter_types
+	}
+	msg_format.update({
+		'match': context.user_data['match']
+			if 'match' in context.user_data
+			else matches_menu['default']
+	})
+
+	menu.sendMessage(
+		update, context,
+		matches_menu['msg'].format(**msg_format),
+		matches_menu['buttons'] if show_reset else matches_menu['buttons'][1:],
+		'matches'
+	)
+	return MATCHES
+
+
+def reset(update, context):
+	if 'match' in context.user_data:
+		del context.user_data['match']
+	for filter_type in matches_menu['next'].keys():
+		if filter_type in context.user_data:
+			del context.user_data[filter_type]
+	return matchesMain(update, context)
 
 
 def matchesList(update, context):
-	current_menu = texts.matches['extra']['choose_match']
+	current_menu = matches_menu['next']['choose_match']
 
 	matches_buttons = []
-	if 'match' in context.user_data:
-		chosen_match = context.user_data['match']
-		matches_buttons.append(current_menu['extra']['unset']['button'])
-	else:
-		chosen_match = current_menu['default']
-		show_unset_button = False
-
 	matches_found = database.getMatches({
 		filter_type: context.user_data[filter_type]
 			if filter_type in context.user_data else None
@@ -36,9 +75,9 @@ def matchesList(update, context):
 				[buttons.createButton(
 					"{} - {} - {} - {}".format(
 						match[0],
-						texts.matches['next']['mode']['next'][match[1]]['btn'],
-						texts.matches['next']['view']['next'][match[2]]['btn'],
-						texts.matches['next']['bet']['next'][match[3]]['btn']
+						matches_menu['next']['mode']['next'][match[1]]['btn'],
+						matches_menu['next']['view']['next'][match[2]]['btn'],
+						matches_menu['next']['bet']['next'][match[3]]['btn']
 					),
 					"match{}".format(match[0])
 				)]
@@ -48,18 +87,12 @@ def matchesList(update, context):
 		found = 0
 
 	menu.sendMessage(
-		update, context, 'matches',
-		current_menu['msg'].format(found, chosen_match),
-		current_menu['buttons'],
-		matches_buttons
+		update, context,
+		current_menu['msg'].format(found),
+		matches_buttons + current_menu['buttons'],
+		'choose_match'
 	)
 	return PICK
-
-
-def unsetMatch(update, context):
-	if 'match' in context.user_data:
-		del context.user_data['match']
-	return matchesMain(update, context)
 
 
 def pickMatch(update, context):
@@ -69,55 +102,16 @@ def pickMatch(update, context):
 	return matchesMain(update, context)
 
 
-def matchesMain(update, context):
-	# if 'pubg_id' not in context.user_data:
-	# 	return menu.sendMessage(
-	# 		update, context, 'matches',
-	# 		texts.pubg_id_not_set['msg'],
-	# 		texts.pubg_id_not_set['buttons']
-	# 	)
-
-	filters_set = 0
-	msg_format = {}
-	for filter_type in filter_types:
-		if filter_type in context.user_data:
-			filters_set += 1
-			msg_format.update({
-				filter_type: texts.matches['next'][filter_type]['next']
-								[context.user_data[filter_type]]['btn']
-			})
-		else:
-			msg_format.update({filter_type: texts.matches['default']})
-	if filters_set > 0:
-		if filters_set == 3:
-			return matchesList(update, context)
-		show_reset = True
-	else:
-		show_reset = False
-	menu.sendMessage(
-		update, context, 'matches',
-		texts.matches['msg'].format(**msg_format),
-		texts.matches['buttons'],
-		[texts.matches['extra']['reset']['button']] if show_reset else []
-	)
-	return FILTERS
-
-
-def resetFilters(update, context):
-	for filter_type in texts.matches['next'].keys():
-		if filter_type in context.user_data:
-			del context.user_data[filter_type]
-	return matchesMain(update, context)
-
-
 def chooseFilter(update, context):
 	next_state = update.callback_query.data
+	current_menu = matches_menu['next'][next_state]
 	menu.sendMessage(
-		update, context, next_state,
-		texts.matches['next'][next_state]['msg'],
-		texts.matches['next'][next_state]['buttons']
+		update, context,
+		current_menu['msg'],
+		current_menu['buttons'],
+		next_state
 	)
-	return SETTING
+	return FILTERS
 
 
 def getFilterSetting(update, context):
@@ -131,25 +125,24 @@ handler = ConversationHandler(
 		CallbackQueryHandler(matchesMain, pattern=r'^matches$')
 	],
 	states={
-		FILTERS: [
-			CallbackQueryHandler(resetFilters, pattern=r'^reset$'),
+		MATCHES: [
+			CallbackQueryHandler(reset, pattern=r'^reset$'),
+			CallbackQueryHandler(matchesList, pattern=r'^choose_match$'),
 			CallbackQueryHandler(
 				chooseFilter,
 				pattern=r'^({})$'.format(')|('.join(filter_types))
 			),
 		],
-		SETTING: [
+		FILTERS: [
 			CallbackQueryHandler(
 				getFilterSetting,
-				pattern=r'^({mode_types})|({view_types})|({bet_types})$'.format(
-					mode_types=')|('.join(texts.matches['next']['mode']['next'].keys()),
-					view_types=')|('.join(texts.matches['next']['view']['next'].keys()),
-					bet_types=')|('.join(texts.matches['next']['bet']['next'].keys())
-				)
+				pattern=r'^({})$'.format(')|('.join(
+					list(chain(*[list(matches_menu['next'][filter_type]['next'].keys())
+										for filter_type in filter_types]))
+				))
 			)
 		],
 		PICK: [
-			CallbackQueryHandler(unsetMatch, pattern=r'^unset$'),
 			CallbackQueryHandler(pickMatch, pattern=r'^match[0-9]+$'),
 		]
 	},
