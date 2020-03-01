@@ -17,6 +17,7 @@ matches_menu = texts.menu['next']['matches']
 
 
 def matchesMain(update, context):
+	print(update)
 	# if 'pubg_id' not in context.user_data:
 	# 	return menu.sendMessage(
 	# 		update, context, 'matches',
@@ -24,7 +25,8 @@ def matchesMain(update, context):
 	# 		texts.pubg_id_not_set['buttons']
 	# 	)
 
-	if any(filter_type in context.user_data for filter_type in filter_types):
+	if any(filter_type in context.user_data for filter_type in filter_types)\
+		or 'match' in context.user_data:
 		show_reset = True
 	else:
 		show_reset = False
@@ -38,8 +40,7 @@ def matchesMain(update, context):
 	}
 	msg_format.update({
 		'match': context.user_data['match']
-			if 'match' in context.user_data
-			else matches_menu['default']
+			if 'match' in context.user_data else '-'
 	})
 
 	menu.sendMessage(
@@ -74,12 +75,12 @@ def matchesList(update, context):
 			matches_buttons.append(
 				[buttons.createButton(
 					"{} - {} - {} - {}".format(
-						match[0],
-						matches_menu['next']['mode']['next'][match[1]]['btn'],
-						matches_menu['next']['view']['next'][match[2]]['btn'],
-						matches_menu['next']['bet']['next'][match[3]]['btn']
+						match['id'],
+						matches_menu['next']['mode']['next'][match['mode']]['btn'],
+						matches_menu['next']['view']['next'][match['view']]['btn'],
+						matches_menu['next']['bet']['next'][match['bet']]['btn']
 					),
-					"match{}".format(match[0])
+					"match{}".format(match['id'])
 				)]
 			)
 		found = len(matches_found)
@@ -99,6 +100,7 @@ def pickMatch(update, context):
 	match_id = update.callback_query.data.lstrip('match')
 	context.user_data['match'] = match_id
 	update.callback_query.answer(texts.match_is_chosen.format(match_id))
+	context.user_data['conv_history'].pop()
 	return matchesMain(update, context)
 
 

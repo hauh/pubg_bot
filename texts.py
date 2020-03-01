@@ -138,25 +138,59 @@ menu['next']['rooms'].update(rooms)
 # profile
 profile = {
 	'msg': (
-		"*КАБИНЕТ*\n\n"
-		"PUBG ID: {}\n"
+		"*ЛИЧНЫЙ КАБИНЕТ*\n\n"
+		"*Telegram ID*: {}\n"
+		"*PUBG ID*: {}\n"
+		"*Баланс*: {}\n"
 	),
 	'next': {
+		'balance_history': {
+			'btn': "Посмотреть историю операций",
+			'msg': "Операций не найдено",
+			'next': {}
+		},
 		'add_funds': {
 			'btn': "Пополнить баланс",
 			'msg': "Укажите сумму пополнения",
+			'msg_with_value': "Сумма *пополнения*: {}",
+			'next': {
+				'confirm': {
+					'btn': "Подтвердить"
+				}
+			}
 		},
 		'withdraw_funds': {
 			'btn': "Вывести средства",
 			'msg': "Укажите сумму вывода",
+			'msg_with_value': "Сумма *вывода*: {}",
+			'next': {
+				'confirm': {
+					'btn': "Подтвердить"
+				}
+			}
 		},
 		'set_pubg_id': {
 			'btn': "Установить PUBG ID",
 			'msg': "Введите PUBG ID",
+			'msg_with_value': "Новый PUBG ID: {}",
+			'next': {
+				'confirm': {
+					'btn': "Подтвердить"
+				}
+			}
 		},
 	}
 }
+for key in profile['next'].keys():
+	profile['next'][key].update({
+	})
 menu['next']['profile'].update(profile)
+
+funds_added = "Баланс пополнен"
+insufficient_funds = "Недостаточно средств"
+funds_withdrawn = "Сумма списана с баланса"
+pubg_id_not_found = "Такой PUBG ID не найден"
+pubg_id_is_set = "Новый PUBG ID установлен"
 
 # admin
 admin = {

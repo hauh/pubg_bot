@@ -14,12 +14,13 @@ def withConnection(db_request):
 	def executeWithConnection(*args):
 		try:
 			connection = mysql.connector.connect(**config.db_kwargs)
-			cursor = connection.cursor()
+			cursor = connection.cursor(dictionary=True)
 		except Exception as err:
 			logger.critical(
 				"DB connection failed with:\n{} {}"
 					.format(type(err).__name__, err.args)
 			)
+			raise
 		else:
 			try:
 				result = db_request(*args, cursor=cursor)
@@ -28,6 +29,7 @@ def withConnection(db_request):
 					"DB query failed with:\n{} {}"
 						.format(type(err).__name__, err.args)
 				)
+				raise
 			else:
 				connection.commit()
 				return result
@@ -62,4 +64,34 @@ def saveMatches(cursor=None):
 @withConnection
 def getMatches(filters, cursor=None):
 	cursor.execute(queries.get_matches, filters)
+	return cursor.fetchall()
+
+
+@withConnection
+def getUser(user_id, cursor=None):
+	cursor.execute(queries.get_user, (int(user_id),))
+	user = cursor.fetchone()
+	if not user:
+		cursor.execute(queries.save_user, (int(user_id),))
+		user = {'id': None, 'pubg_id': None, 'balance': 0}
+		logger.info("New user {} has been registered".format(user_id))
+	return user
+
+
+@withConnection
+def updateBalance(user_id, amount, cursor=None):
+	for query in queries.update_balance:
+		cursor.execute(query, (amount, user_id,))
+	logger.info("Balance of {} has been changed for {}".format(user_id, amount))
+
+
+@withConnection
+def updatePubgID(user_id, pubg_id, cursor=None):
+	cursor.execute(queries.update_pubg_id, (pubg_id, user_id,))
+	logger.info("User {} has set their PUBG ID to {}".format(user_id, pubg_id))
+
+
+@withConnection
+def getBalanceHistory(user_id=None, cursor=None):
+	cursor.execute(queries.get_balance_history, {'user_id': user_id})
 	return cursor.fetchall()

@@ -1,5 +1,6 @@
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 
+import config
 import texts
 
 ##############################
@@ -23,3 +24,7 @@ def generateButtons(menu, depth=0):
 		if depth > 1:
 			navigation.append(createButton(texts.main, 'main'))
 		menu['buttons'].append(navigation)
+
+
+def updateSpecialButtons():
+	texts.menu['next']['rooms']['buttons'][0][0].url = config.battle_chat

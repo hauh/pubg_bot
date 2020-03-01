@@ -1,10 +1,11 @@
 from logging import getLogger
 
-from telegram import Update, ParseMode, InlineKeyboardMarkup
+from telegram import Update, CallbackQuery, ParseMode, InlineKeyboardMarkup
 from telegram.ext import Handler
 
 import config
 import texts
+import database
 
 ###################
 
@@ -12,16 +13,22 @@ logger = getLogger(__name__)
 
 
 def sendMessage(update, context, message, buttons, next_state=None):
-	if update.callback_query:
-		try:
-			update.callback_query.message.delete()
-		except Exception:
-			pass
-	update.effective_chat.send_message(
-		message,
-		parse_mode=ParseMode.MARKDOWN,
-		reply_markup=InlineKeyboardMarkup(buttons)
+	if '_previous_messages' in context.user_data:
+		for message in context.user_data['_previous_messages']:
+			try:
+				message.delete()
+			except Exception:
+				pass
+	previous_messages = []
+	previous_messages.append(
+		update.effective_chat.send_message(
+			message,
+			parse_mode=ParseMode.MARKDOWN,
+			reply_markup=InlineKeyboardMarkup(buttons)
+		)
 	)
+	# previous_messages[-1].edit_reply_markup(InlineKeyboardMarkup(buttons))
+	context.user_data['_previous_messages'] = previous_messages
 	if next_state and next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
 	return next_state
@@ -29,6 +36,9 @@ def sendMessage(update, context, message, buttons, next_state=None):
 
 def mainMenu(update, context):
 	context.user_data['conv_history'] = []
+	if 'pubg_id' not in context.user_data:
+		_, context.user_data['pubg_id'], context.user_data['balance'] =\
+			database.getUser(update.effective_user.id).values()
 	sendMessage(
 		update, context,
 		texts.menu['msg'],
@@ -71,13 +81,10 @@ class MenuHandler(Handler):
 
 	def handle_update(self, update, dispatcher, check_result, context=None):
 		if not update.callback_query:
-			if 'conv_history' in context.user_data:
-				next_state = context.user_data['conv_history'][-1]
-			else:
-				return mainMenu(update, context)
+			return update.effective_message.delete()
 		else:
 			next_state = update.callback_query.data
 		menu = self._findMenu(self.menu, next_state)
 		if not menu:
 			return mainMenu(update, context)
-		return sendMessage(update, context, next_state, menu['msg'], menu['buttons'])
+		return sendMessage(update, context, menu['msg'], menu['buttons'], next_state)

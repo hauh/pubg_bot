@@ -27,6 +27,7 @@ def error(update, context):
 
 def main():
 	buttons.generateButtons(texts.menu)
+	buttons.updateSpecialButtons()
 	database.prepareDB()
 
 	updater = Updater(

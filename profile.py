@@ -1,6 +1,7 @@
 from logging import getLogger
 import re
 
+from telegram import constants
 from telegram.ext import (
 	ConversationHandler, CallbackQueryHandler,
 	Filters, MessageHandler
@@ -9,48 +10,121 @@ from telegram.ext import (
 import config
 import texts
 import menu
+import database
 
 #######################
 
 logger = getLogger(__name__)
-PROFILE, SET_ID = range(0, 2)
+PROFILE, GET_VALUE, UPDATE = range(0, 3)
 profile_menu = texts.menu['next']['profile']
 
 
 def profileMain(update, context):
+	if 'new_value' in context.user_data:
+		del context.user_data['new_value']
 	menu.sendMessage(
 		update, context,
 		profile_menu['msg'].format(
-			context.user_data['pubg_id'] if 'pubg_id' in context.user_data else '-'),
+			update.effective_user.id,
+			context.user_data['pubg_id'],
+			context.user_data['balance'],
+		),
 		profile_menu['buttons'],
 		'profile'
 	)
 	return PROFILE
 
 
-def setPubgID(update, context):
-	current_menu = profile_menu['next']['set_pubg_id']
+def balanceHistory(update, context):
+	current_menu = profile_menu['next']['balance_history']
+	balance_history = database.getBalanceHistory(int(update.effective_user.id))
+	messages = []
+	if balance_history:
+		message_text = ""
+		for history_entry in balance_history:
+			message_text += "{id}\t{date}\t{amount}\n".format(
+				id=history_entry['id'],
+				date=history_entry['date'],
+				amount=history_entry['amount']
+			)
+	else:
+		message = current_menu['msg']
+	menu.sendMessage(
+		update, context,
+		message,
+		profile_menu['next']['balance_history']['buttons'],
+		'balance_history'
+	)
+
+
+def updateProfile(update, context):
+	what_to_update = update.callback_query.data
+	current_menu = profile_menu['next'][what_to_update]
 	menu.sendMessage(
 		update, context,
 		current_menu['msg'],
-		current_menu['buttons']
+		current_menu['buttons'][1:],
+		what_to_update
 	)
-	return SET_ID
+	return GET_VALUE
 
 
-def getPubgID(update, context):
-	if not re.match(r'[0-9]+', update.effective_message.text):
-		return setPubgID(update, context)
-	context.user_data['pubg_id'] = update.effective_message.text
+def getValue(update, context):
+	new_value = int(update.effective_message.text)
+	update.effective_message.delete()
+	context.user_data['new_value'] = new_value
+	what_to_update = context.user_data['conv_history'].pop()
+	current_menu = profile_menu['next'][what_to_update]
+	menu.sendMessage(
+		update, context,
+		current_menu['msg_with_value'].format(new_value),
+		current_menu['buttons'],
+		what_to_update
+	)
+	return UPDATE
+
+
+def addFunds(user_id, user_data):
+	database.updateBalance(user_id, user_data['new_value'])
+	user_data['balance'] = database.getUser(user_id)['balance']
+	return texts.funds_added
+
+
+def withdrawFunds(user_id, user_data):
+	amount = user_data['new_value']
+	current_funds = database.getUser(user_id)['balance']
+	if current_funds < amount:
+		return texts.insufficient_funds
+	database.updateBalance(user_id, -amount)
+	user_data['balance'] = database.getUser(user_id)['balance']
+	return texts.funds_withdrawn
+
+
+def updatePubgID(user_id, user_data):
+	new_id = user_data['new_value']
+	# if not check_id(new_id):
+	# 	return texts.pubg_id_not_found
+	database.updatePubgID(user_id, new_id)
+	user_data['pubg_id'] = new_id
+	return texts.pubg_id_is_set
+
+
+update_profile_callbacks = {
+	'add_funds'		: addFunds,
+	'withdraw_funds': withdrawFunds,
+	'set_pubg_id'	: updatePubgID,
+}
+
+
+def doUpdate(update, context):
+	what_to_update = context.user_data['conv_history'].pop()
+	result = update_profile_callbacks[what_to_update](
+		int(update.effective_user.id),
+		context.user_data
+	)
+	update.callback_query.answer(result)
+	del context.user_data['new_value']
 	return profileMain(update, context)
-
-
-def addFunds(update, context):
-	pass
-
-
-def withdrawFunds(update, context):
-	pass
 
 
 handler = ConversationHandler(
@@ -59,13 +133,17 @@ handler = ConversationHandler(
 	],
 	states={
 		PROFILE: [
-			CallbackQueryHandler(setPubgID, pattern=r'^set_pubg_id$'),
-			CallbackQueryHandler(addFunds, pattern=r'^add_funds$'),
-			CallbackQueryHandler(withdrawFunds, pattern=r'^withdraw_funds$'),
+			CallbackQueryHandler(balanceHistory, pattern=r'^balance_history$'),
+			CallbackQueryHandler(
+				updateProfile,
+				pattern=r'^({})$'.format(')|('.join(profile_menu['next'].keys()))),
 		],
-		SET_ID: [
-			MessageHandler(Filters.text, getPubgID)
+		GET_VALUE: [
+			MessageHandler(Filters.regex(r'^[0-9]+$'), getValue),
 		],
+		UPDATE: [
+			CallbackQueryHandler(doUpdate, pattern=r'^confirm$')
+		]
 	},
 	fallbacks=[],
 	allow_reentry=True
