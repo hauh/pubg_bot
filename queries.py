@@ -1,27 +1,30 @@
 tables = (
 	"""
 		CREATE TABLE IF NOT EXISTS matches (
-			id		INT PRIMARY KEY AUTO_INCREMENT,
-			mode	ENUM('solo', 'dual', 'squad'),
-			view	ENUM('1st', '3rd'),
-			bet		ENUM('30', '60', '90'),
-			closed	BOOL DEFAULT false
+			id			INT PRIMARY KEY AUTO_INCREMENT,
+			mode		ENUM('solo', 'dual', 'squad'),
+			view		ENUM('1st', '3rd'),
+			bet			ENUM('30', '60', '90'),
+			closed		BOOL DEFAULT false
 		)
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS users (
-			id		INT PRIMARY KEY,
-			pubg_id	INT,
-			balance	INT	DEFAULT 0
+			id			INT PRIMARY KEY,
+			chat_id		INT NOT NULL,
+			pubg_id		INT,
+			username	VARCHAR(32),
+			balance		INT	DEFAULT 0,
+			admin		BOOL DEFAULT false
 		)
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS balance_history (
-			id		INT PRIMARY KEY AUTO_INCREMENT,
-			amount	INT NOT NULL,
-			user_id	INT,
-			date	DATETIME,
-			FOREIGN KEY (user_id) REFERENCES users (id)
+			id			INT PRIMARY KEY AUTO_INCREMENT,
+			amount		INT NOT NULL,
+			user_id		INT,
+			date		DATETIME,
+			FOREIGN 	KEY (user_id) REFERENCES users (id)
 		)
 	""",
 )
@@ -30,19 +33,29 @@ get_matches =\
 	"""
 		SELECT * FROM matches WHERE
 			closed = false
-			AND (mode = %(mode)s OR %(mode)s is NULL)
-			AND (view = %(view)s OR %(view)s is NULL)
-			AND (bet = %(bet)s OR %(bet)s is NULL)
+			AND (%(mode)s is NULL OR mode = %(mode)s)
+			AND (%(view)s is NULL OR view = %(view)s)
+			AND (%(bet)s is NULL OR bet = %(bet)s)
 	"""
 
 get_user =\
 	"""
-		SELECT * FROM users WHERE id = %s
+		SELECT * FROM users WHERE
+			(%(id)s IS NULL OR id = %(id)s) AND
+			(%(username)s IS NULL OR username = %(username)s)
+	"""
+
+get_user_by_username =\
+	"""
+		SELECT * FROM users WHERE username = %s
 	"""
 
 save_user =\
 	"""
-		INSERT INTO users (id) VALUES (%s)
+		INSERT INTO users (id, chat_id, username) VALUES (%s, %s, %s)
+			ON DUPLICATE KEY UPDATE
+				chat_id = VALUES(chat_id),
+				username = VALUES(username)
 	"""
 
 update_balance = (
@@ -64,4 +77,14 @@ get_balance_history =\
 	"""
 		SELECT * FROM balance_history WHERE
 			(user_id = %(user_id)s OR %(user_id)s is NULL)
+	"""
+
+get_admins =\
+	"""
+		SELECT * FROM users WHERE admin = true
+	"""
+
+update_admin =\
+	"""
+		UPDATE users SET admin = %s WHERE id = %s
 	"""

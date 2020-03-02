@@ -1,7 +1,11 @@
 import sys
 from logging import getLogger
 
-from telegram.ext import Updater, CallbackQueryHandler, CommandHandler
+from telegram import ParseMode
+from telegram.ext import (
+	Defaults, Filters, Updater, CallbackQueryHandler, CommandHandler
+)
+
 
 import config
 import database
@@ -11,6 +15,7 @@ import menu
 import matches
 import rooms
 import profile
+import admin
 
 ########################
 
@@ -39,16 +44,19 @@ def main():
 	updater = Updater(
 		token=config.bot_token,
 		use_context=True,
+		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
 	)
 	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(CommandHandler('start', menu.mainMenu))
+	dispatcher.add_handler(
+		CommandHandler('start', menu.mainMenu, filters=Filters.private))
 	dispatcher.add_handler(CallbackQueryHandler(menu.mainMenu, pattern=r'^main$'))
-	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_handler(matches.handler)
 	dispatcher.add_handler(rooms.handler)
 	dispatcher.add_handler(profile.handler)
+	dispatcher.add_handler(admin.handler)
 	dispatcher.add_handler(menu.MenuHandler(texts.menu))
+	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")

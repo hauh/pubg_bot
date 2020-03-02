@@ -73,7 +73,7 @@ def getValue(update, context):
 	new_value = int(update.effective_message.text)
 	update.effective_message.delete()
 	context.user_data['new_value'] = new_value
-	what_to_update = context.user_data['conv_history'].pop()
+	what_to_update = context.chat_data['conv_history'].pop()
 	current_menu = profile_menu['next'][what_to_update]
 	menu.sendMessage(
 		update, context,
@@ -96,7 +96,7 @@ def withdrawFunds(user_id, user_data):
 	if current_funds < amount:
 		return texts.insufficient_funds
 	database.updateBalance(user_id, -amount)
-	user_data['balance'] = database.getUser(user_id)['balance']
+	user_data['balance'] -= amount
 	return texts.funds_withdrawn
 
 
@@ -117,12 +117,12 @@ update_profile_callbacks = {
 
 
 def doUpdate(update, context):
-	what_to_update = context.user_data['conv_history'].pop()
+	what_to_update = context.chat_data['conv_history'].pop()
 	result = update_profile_callbacks[what_to_update](
 		int(update.effective_user.id),
 		context.user_data
 	)
-	update.callback_query.answer(result)
+	update.callback_query.answer(result, show_alert=True)
 	del context.user_data['new_value']
 	return profileMain(update, context)
 

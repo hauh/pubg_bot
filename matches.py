@@ -97,8 +97,9 @@ def matchesList(update, context):
 def pickMatch(update, context):
 	match_id = update.callback_query.data.lstrip('match')
 	context.user_data['match'] = match_id
-	update.callback_query.answer(texts.match_is_chosen.format(match_id))
-	context.user_data['conv_history'].pop()
+	update.callback_query.answer(
+		texts.match_is_chosen.format(match_id), show_alert=True)
+	context.chat_data['conv_history'].pop()
 	return matchesMain(update, context)
 
 
@@ -115,7 +116,7 @@ def chooseFilter(update, context):
 
 
 def getFilterSetting(update, context):
-	filter_type = context.user_data['conv_history'].pop()
+	filter_type = context.chat_data['conv_history'].pop()
 	context.user_data[filter_type] = update.callback_query.data
 	return matchesMain(update, context)
 

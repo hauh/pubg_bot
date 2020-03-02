@@ -11,7 +11,7 @@ logger = getLogger('db')
 
 
 def withConnection(db_request):
-	def executeWithConnection(*args):
+	def executeWithConnection(*args, **kwargs):
 		try:
 			connection = mysql.connector.connect(**config.db_kwargs)
 			cursor = connection.cursor(dictionary=True)
@@ -21,21 +21,20 @@ def withConnection(db_request):
 					.format(type(err).__name__, err.args)
 			)
 			raise
+		try:
+			result = db_request(*args, **kwargs, cursor=cursor)
+		except Exception as err:
+			logger.error(
+				"DB query failed with:\n{} {}"
+					.format(type(err).__name__, err.args)
+			)
+			raise
 		else:
-			try:
-				result = db_request(*args, cursor=cursor)
-			except Exception as err:
-				logger.error(
-					"DB query failed with:\n{} {}"
-						.format(type(err).__name__, err.args)
-				)
-				raise
-			else:
-				connection.commit()
-				return result
-			finally:
-				cursor.close()
-				connection.close()
+			connection.commit()
+			return result
+		finally:
+			cursor.close()
+			connection.close()
 	return executeWithConnection
 
 
@@ -68,14 +67,15 @@ def getMatches(filters, cursor=None):
 
 
 @withConnection
-def getUser(user_id, cursor=None):
-	cursor.execute(queries.get_user, (int(user_id),))
-	user = cursor.fetchone()
-	if not user:
-		cursor.execute(queries.save_user, (int(user_id),))
-		user = {'id': None, 'pubg_id': None, 'balance': 0}
-		logger.info("New user {} has been registered".format(user_id))
-	return user
+def getUser(user_id=None, username=None, cursor=None):
+	cursor.execute(queries.get_user, {'id': user_id, 'username': username})
+	return cursor.fetchone()
+
+
+@withConnection
+def saveUser(user_id, chat_id, username, cursor=None):
+	cursor.execute(queries.save_user, (user_id, chat_id, username))
+	logger.info("New user {} has been registered".format(user_id))
 
 
 @withConnection
@@ -95,3 +95,21 @@ def updatePubgID(user_id, pubg_id, cursor=None):
 def getBalanceHistory(user_id=None, cursor=None):
 	cursor.execute(queries.get_balance_history, {'user_id': user_id})
 	return cursor.fetchall()
+
+
+@withConnection
+def getAdmins(cursor=None):
+	cursor.execute(queries.get_admins)
+	return cursor.fetchall()
+
+
+@withConnection
+def updateAdmin(user_id, new_status, cursor=None):
+	cursor.execute(queries.update_admin, (new_status, user_id))
+	if cursor.rowcount == 0:
+		return False
+	if new_status:
+		logger.info("User {} became added".format(user_id))
+	else:
+		logger.info("User {} is no longer admin".format(user_id))
+	return True

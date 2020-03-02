@@ -1,8 +1,7 @@
 from logging import getLogger
 
 from telegram import (
-	constants, Update, CallbackQuery,
-	ParseMode, InlineKeyboardMarkup
+	constants, Update, CallbackQuery, InlineKeyboardMarkup
 )
 from telegram.ext import Handler
 
@@ -43,26 +42,30 @@ def sendMessage(update, context, message_text, buttons, next_state=None):
 		sent_messages.append(
 			update.effective_chat.send_message(
 				message,
-				parse_mode=ParseMode.MARKDOWN,
 				reply_markup=InlineKeyboardMarkup(buttons)
 					if message == messages[-1] else None
 			)
 		)
 	context.chat_data['old_messages'] = sent_messages
-	if next_state and next_state not in context.user_data['conv_history']:
-		context.user_data['conv_history'].append(next_state)
+	if next_state and next_state not in context.chat_data['conv_history']:
+		context.chat_data['conv_history'].append(next_state)
 	return next_state
 
 
 def mainMenu(update, context):
-	context.user_data['conv_history'] = []
-	if 'pubg_id' not in context.user_data:
-		_, context.user_data['pubg_id'], context.user_data['balance'] =\
-			database.getUser(update.effective_user.id).values()
+	context.chat_data['conv_history'] = []
+	user_id = int(update.effective_user.id)
+	chat_id = int(update.effective_chat.id)
+	username = update.effective_user.username
+	user = database.getUser(user_id)
+	if not user or user['chat_id'] != chat_id or user['username'] != username:
+		database.saveUser(user_id, chat_id, username)
+		user = database.getUser(user_id)
+	context.user_data.update(user)
 	sendMessage(
 		update, context,
 		texts.menu['msg'],
-		texts.menu['buttons'] if update.effective_user.id in config.admin_id
+		texts.menu['buttons'] if user_id in config.admin_id
 			else texts.menu['buttons'][1:],
 		'main'
 	)
@@ -70,10 +73,10 @@ def mainMenu(update, context):
 
 
 def back(update, context):
-	if len(context.user_data['conv_history']) < 2:
+	if len(context.chat_data['conv_history']) < 2:
 		return mainMenu(update, context)
-	context.user_data['conv_history'].pop()
-	update.callback_query.data = context.user_data['conv_history'][-1]
+	context.chat_data['conv_history'].pop()
+	update.callback_query.data = context.chat_data['conv_history'][-1]
 	return context.dispatcher.process_update(update)
 
 
