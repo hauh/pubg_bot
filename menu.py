@@ -1,6 +1,9 @@
 from logging import getLogger
 
-from telegram import Update, CallbackQuery, ParseMode, InlineKeyboardMarkup
+from telegram import (
+	constants, Update, CallbackQuery,
+	ParseMode, InlineKeyboardMarkup
+)
 from telegram.ext import Handler
 
 import config
@@ -12,23 +15,40 @@ import database
 logger = getLogger(__name__)
 
 
-def sendMessage(update, context, message, buttons, next_state=None):
-	if '_previous_messages' in context.user_data:
-		for message in context.user_data['_previous_messages']:
+def splitMessageText(text):
+	messages = []
+	i = 0
+	while i + constants.MAX_MESSAGE_LENGTH < len(text):
+		max_lines_index = text.rfind('\n', i, i + constants.MAX_MESSAGE_LENGTH)
+		messages.append(text[i:max_lines_index])
+		i = max_lines_index + 1
+	messages.append(text[i:])
+	return messages
+
+
+def cleanChat(chat_data):
+	if 'old_messages' in chat_data:
+		for message in chat_data['old_messages']:
 			try:
 				message.delete()
 			except Exception:
 				pass
-	previous_messages = []
-	previous_messages.append(
-		update.effective_chat.send_message(
-			message,
-			parse_mode=ParseMode.MARKDOWN,
-			reply_markup=InlineKeyboardMarkup(buttons)
+
+
+def sendMessage(update, context, message_text, buttons, next_state=None):
+	cleanChat(context.chat_data)
+	sent_messages = []
+	messages = splitMessageText(message_text)
+	for message in messages:
+		sent_messages.append(
+			update.effective_chat.send_message(
+				message,
+				parse_mode=ParseMode.MARKDOWN,
+				reply_markup=InlineKeyboardMarkup(buttons)
+					if message == messages[-1] else None
+			)
 		)
-	)
-	# previous_messages[-1].edit_reply_markup(InlineKeyboardMarkup(buttons))
-	context.user_data['_previous_messages'] = previous_messages
+	context.chat_data['old_messages'] = sent_messages
 	if next_state and next_state not in context.user_data['conv_history']:
 		context.user_data['conv_history'].append(next_state)
 	return next_state

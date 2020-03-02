@@ -1,7 +1,6 @@
 from logging import getLogger
 import re
 
-from telegram import constants
 from telegram.ext import (
 	ConversationHandler, CallbackQueryHandler,
 	Filters, MessageHandler
@@ -38,14 +37,15 @@ def profileMain(update, context):
 def balanceHistory(update, context):
 	current_menu = profile_menu['next']['balance_history']
 	balance_history = database.getBalanceHistory(int(update.effective_user.id))
-	messages = []
 	if balance_history:
-		message_text = ""
-		for history_entry in balance_history:
-			message_text += "{id}\t{date}\t{amount}\n".format(
-				id=history_entry['id'],
-				date=history_entry['date'],
-				amount=history_entry['amount']
+		message = ""
+		for balance_entry in balance_history:
+			amount = balance_entry['amount']
+			message += "{arrow} \[{id}: {date}] {amount}\n".format(
+				arrow='➡' if amount > 0 else '⬅',
+				id=balance_entry['id'],
+				date=balance_entry['date'],
+				amount=amount
 			)
 	else:
 		message = current_menu['msg']

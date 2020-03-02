@@ -1,5 +1,4 @@
 from logging import getLogger
-from itertools import chain
 
 from telegram.ext import ConversationHandler, CallbackQueryHandler
 
@@ -12,12 +11,11 @@ import buttons
 
 logger = getLogger(__name__)
 MATCHES, PICK, FILTERS = range(0, 3)
-filter_types = ['mode', 'view', 'bet']
 matches_menu = texts.menu['next']['matches']
+filter_types = ['mode', 'view', 'bet']
 
 
 def matchesMain(update, context):
-	print(update)
 	# if 'pubg_id' not in context.user_data:
 	# 	return menu.sendMessage(
 	# 		update, context, 'matches',
@@ -139,8 +137,8 @@ handler = ConversationHandler(
 			CallbackQueryHandler(
 				getFilterSetting,
 				pattern=r'^({})$'.format(')|('.join(
-					list(chain(*[list(matches_menu['next'][filter_type]['next'].keys())
-										for filter_type in filter_types]))
+					[filter_value for filter_type in filter_types
+						for filter_value in matches_menu['next'][filter_type]['next'].keys()]
 				))
 			)
 		],

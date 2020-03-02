@@ -1,3 +1,4 @@
+import sys
 from logging import getLogger
 
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler
@@ -26,9 +27,14 @@ def error(update, context):
 
 
 def main():
+	try:
+		database.prepareDB()
+	except Exception:
+		logger.critical("Database required!")
+		sys.exit(-1)
+
 	buttons.generateButtons(texts.menu)
 	buttons.updateSpecialButtons()
-	database.prepareDB()
 
 	updater = Updater(
 		token=config.bot_token,
@@ -45,7 +51,7 @@ def main():
 	dispatcher.add_handler(menu.MenuHandler(texts.menu))
 	dispatcher.add_error_handler(error)
 
-	logger.info('Bot started')
+	logger.info("Bot started")
 
 	updater.start_polling()
 	updater.idle()
