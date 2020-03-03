@@ -14,82 +14,67 @@ import database
 logger = getLogger(__name__)
 
 
-def splitMessageText(text):
-	messages = []
-	i = 0
-	while i + constants.MAX_MESSAGE_LENGTH < len(text):
-		max_lines_index = text.rfind('\n', i, i + constants.MAX_MESSAGE_LENGTH)
-		messages.append(text[i:max_lines_index])
-		i = max_lines_index + 1
-	messages.append(text[i:])
-	return messages
-
-
-def cleanChat(chat_data):
-	if 'old_messages' in chat_data:
-		for message in chat_data['old_messages']:
-			try:
-				message.delete()
-			except Exception:
-				pass
-
-
-def sendMessage(update, context, message_text, buttons, next_state=None):
-	cleanChat(context.chat_data)
-	sent_messages = []
-	messages = splitMessageText(message_text)
-	for message in messages:
-		sent_messages.append(
-			update.effective_chat.send_message(
-				message,
-				reply_markup=InlineKeyboardMarkup(buttons)
-					if message == messages[-1] else None
-			)
-		)
-	context.chat_data['old_messages'] = sent_messages
-	if next_state and next_state not in context.chat_data['conv_history']:
-		context.chat_data['conv_history'].append(next_state)
-	return next_state
-
-
-def mainMenu(update, context):
-	context.chat_data['conv_history'] = []
-	user_id = int(update.effective_user.id)
-	chat_id = int(update.effective_chat.id)
-	username = update.effective_user.username
-	user = database.getUser(user_id)
-	if not user or user['chat_id'] != chat_id or user['username'] != username:
-		database.saveUser(user_id, chat_id, username)
-		user = database.getUser(user_id)
-	context.user_data.update(user)
-	sendMessage(
-		update, context,
-		texts.menu['msg'],
-		texts.menu['buttons'] if user_id in config.admin_id
-			else texts.menu['buttons'][1:],
-		'main'
-	)
-	return -1
-
-
-def back(update, context):
-	if len(context.chat_data['conv_history']) < 2:
-		return mainMenu(update, context)
-	context.chat_data['conv_history'].pop()
-	update.callback_query.data = context.chat_data['conv_history'][-1]
-	return context.dispatcher.process_update(update)
-
-
 class MenuHandler(Handler):
 
-	def __init__(self, menu):
+	def __init__(self, menu, callbacks_lists):
 		self.menu = menu
+		self.callbacks = {}
+		for callback_list in callbacks_lists:
+			self.callbacks.update(callback_list)
 		super(MenuHandler, self).__init__(callback=None)
 
 	def check_update(self, update):
 		if isinstance(update, Update) and update.effective_chat.type == 'private':
 			return True
 		return False
+
+	def handle_update(self, update, dispatcher, check_result, context):
+		if 'history' not in context.chat_data:
+			context.chat_data['history'] = []
+		history = context.chat_data['history']
+		print(history)
+
+		next_state = self._getNextState(update, context, history)
+		callback = self._findCallback(next_state)
+		if callback:
+			text, buttons = callback(update, context)
+		else:
+			menu = self._findMenu(self.menu, next_state)
+			if not menu:
+				menu = self.menu
+			text, buttons = menu['msg'], menu['buttons']
+
+		self._cleanChat(context.chat_data)
+		messages = self._splitText(text)
+		self._sendMessages(update, context, messages, buttons)
+		if next_state in history:
+			del history[history.index(next_state) + 1:]
+		else:
+			history.append(next_state)
+		print(history)
+		print('\n')
+
+	def _getNextState(self, update, context, history):
+		if update.callback_query:
+			if update.callback_query.data == 'back':
+				if len(history) > 1:
+					history.pop()
+				return history[-1]
+			return update.callback_query.data
+		user_input = update.effective_message.text
+		update.effective_message.delete()
+		if not user_input or user_input == '/start' or len(history) == 0:
+			return 'main'
+		context.chat_data['user_input'] = user_input
+		return history[-1]
+
+	def _findCallback(self, next_state):
+		callback = self.callbacks.get(next_state, None)
+		if not callback:
+			for key in self.callbacks.keys():
+				if next_state.startswith(key):
+					return self.callbacks[key]
+		return callback
 
 	def _findMenu(self, menu, next_state):
 		try:
@@ -102,12 +87,32 @@ class MenuHandler(Handler):
 						return deeper_result
 		return None
 
-	def handle_update(self, update, dispatcher, check_result, context=None):
-		if not update.callback_query:
-			return update.effective_message.delete()
-		else:
-			next_state = update.callback_query.data
-		menu = self._findMenu(self.menu, next_state)
-		if not menu:
-			return mainMenu(update, context)
-		return sendMessage(update, context, menu['msg'], menu['buttons'], next_state)
+	def _cleanChat(self, chat_data):
+		if 'old_messages' in chat_data:
+			for message in chat_data['old_messages']:
+				try:
+					message.delete()
+				except Exception:
+					pass
+
+	def _splitText(self, text):
+		messages = []
+		i = 0
+		while i + constants.MAX_MESSAGE_LENGTH < len(text):
+			max_lines_index = text.rfind('\n', i, i + constants.MAX_MESSAGE_LENGTH)
+			messages.append(text[i:max_lines_index])
+			i = max_lines_index + 1
+		messages.append(text[i:])
+		return messages
+
+	def _sendMessages(self, update, context, messages, buttons):
+		sent_messages = []
+		for message in messages:
+			sent_messages.append(
+				update.effective_chat.send_message(
+					message,
+					reply_markup=InlineKeyboardMarkup(buttons)
+						if message == messages[-1] else None
+				)
+			)
+		context.chat_data['old_messages'] = sent_messages

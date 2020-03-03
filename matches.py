@@ -10,7 +10,6 @@ import buttons
 #######################
 
 logger = getLogger(__name__)
-MATCHES, PICK, FILTERS = range(0, 3)
 matches_menu = texts.menu['next']['matches']
 filter_types = ['mode', 'view', 'bet']
 
@@ -24,7 +23,7 @@ def matchesMain(update, context):
 	# 	)
 
 	if any(filter_type in context.user_data for filter_type in filter_types)\
-		or 'match' in context.user_data:
+		or 'slot' in context.user_data:
 		show_reset = True
 	else:
 		show_reset = False
@@ -37,116 +36,93 @@ def matchesMain(update, context):
 			for filter_type in filter_types
 	}
 	msg_format.update({
-		'match': context.user_data['match']
-			if 'match' in context.user_data else '-'
+		'match': context.user_data['slot']
+			if 'slot' in context.user_data else '-'
 	})
-
-	menu.sendMessage(
-		update, context,
+	return (
 		matches_menu['msg'].format(**msg_format),
-		matches_menu['buttons'] if show_reset else matches_menu['buttons'][1:],
-		'matches'
+		matches_menu['buttons'] if show_reset else matches_menu['buttons'][1:]
 	)
-	return MATCHES
 
 
 def reset(update, context):
-	if 'match' in context.user_data:
-		del context.user_data['match']
+	if 'slot' in context.user_data:
+		del context.user_data['slot']
 	for filter_type in matches_menu['next'].keys():
 		if filter_type in context.user_data:
 			del context.user_data[filter_type]
 	return matchesMain(update, context)
 
 
-def matchesList(update, context):
-	current_menu = matches_menu['next']['choose_match']
+def slotsList(update, context):
+	current_menu = matches_menu['next']['choose_slot']
 
-	matches_buttons = []
-	matches_found = database.getMatches({
+	slots_buttons = []
+	slots_found = database.getMatches({
 		filter_type: context.user_data[filter_type]
 			if filter_type in context.user_data else None
 			for filter_type in filter_types
 	})
-	if matches_found:
-		for match in matches_found:
-			matches_buttons.append(
+	if slots_found:
+		for slot in slots_found:
+			slots_buttons.append(
 				[buttons.createButton(
 					"{} - {} - {} - {}".format(
-						match['id'],
-						matches_menu['next']['mode']['next'][match['mode']]['btn'],
-						matches_menu['next']['view']['next'][match['view']]['btn'],
-						matches_menu['next']['bet']['next'][match['bet']]['btn']
+						slot['id'],
+						matches_menu['next']['mode']['next'][slot['mode']]['btn'],
+						matches_menu['next']['view']['next'][slot['view']]['btn'],
+						matches_menu['next']['bet']['next'][slot['bet']]['btn']
 					),
-					"match{}".format(match['id'])
+					"slot{}".format(slot['id'])
 				)]
 			)
 		found = len(matches_found)
 	else:
 		found = 0
 
-	menu.sendMessage(
-		update, context,
+	return (
 		current_menu['msg'].format(found),
-		matches_buttons + current_menu['buttons'],
-		'choose_match'
+		slots_buttons + current_menu['buttons']
 	)
-	return PICK
 
 
-def pickMatch(update, context):
-	match_id = update.callback_query.data.lstrip('match')
-	context.user_data['match'] = match_id
+def pickSlot(update, context):
+	slot_id = update.callback_query.data.lstrip('slot')
+	context.user_data['slot'] = slot_id
 	update.callback_query.answer(
-		texts.match_is_chosen.format(match_id), show_alert=True)
-	context.chat_data['conv_history'].pop()
+		texts.match_is_chosen.format(slot_id), show_alert=True)
+	context.chat_data['history'].pop()
 	return matchesMain(update, context)
 
 
 def chooseFilter(update, context):
 	next_state = update.callback_query.data
 	current_menu = matches_menu['next'][next_state]
-	menu.sendMessage(
-		update, context,
-		current_menu['msg'],
-		current_menu['buttons'],
-		next_state
-	)
-	return FILTERS
+	return (current_menu['msg'], current_menu['buttons'])
 
 
 def getFilterSetting(update, context):
-	filter_type = context.chat_data['conv_history'].pop()
+	filter_type = context.chat_data['history'].pop()
 	context.user_data[filter_type] = update.callback_query.data
 	return matchesMain(update, context)
 
 
-handler = ConversationHandler(
-	entry_points=[
-		CallbackQueryHandler(matchesMain, pattern=r'^matches$')
-	],
-	states={
-		MATCHES: [
-			CallbackQueryHandler(reset, pattern=r'^reset$'),
-			CallbackQueryHandler(matchesList, pattern=r'^choose_match$'),
-			CallbackQueryHandler(
-				chooseFilter,
-				pattern=r'^({})$'.format(')|('.join(filter_types))
-			),
-		],
-		FILTERS: [
-			CallbackQueryHandler(
-				getFilterSetting,
-				pattern=r'^({})$'.format(')|('.join(
-					[filter_value for filter_type in filter_types
-						for filter_value in matches_menu['next'][filter_type]['next'].keys()]
-				))
-			)
-		],
-		PICK: [
-			CallbackQueryHandler(pickMatch, pattern=r'^match[0-9]+$'),
-		]
-	},
-	fallbacks=[],
-	allow_reentry=True
-)
+callbacks = {
+	'matches'		: matchesMain,
+	'reset'			: reset,
+	'mode'			: chooseFilter,
+	'solo'			: getFilterSetting,
+	'dual'			: getFilterSetting,
+	'squad'			: getFilterSetting,
+	'payload'		: getFilterSetting,
+	'zombie'		: getFilterSetting,
+	'view'			: chooseFilter,
+	'1st'			: getFilterSetting,
+	'3rd'			: getFilterSetting,
+	'bet'			: chooseFilter,
+	'30'			: getFilterSetting,
+	'60'			: getFilterSetting,
+	'90'			: getFilterSetting,
+	'choose_slot'	: slotsList,
+	'slot_'			: pickSlot
+}

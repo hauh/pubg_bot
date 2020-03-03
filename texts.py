@@ -52,7 +52,7 @@ matches = {
 		'reset': {
 			'btn': "Сбросить выбор"
 		},
-		'choose_match': {
+		'choose_slot': {
 			'btn': "Выбрать матч",
 			'msg': "Найдено матчей: {}",
 			'next': {}
@@ -151,20 +151,20 @@ profile = {
 		},
 		'add_funds': {
 			'btn': "Пополнить баланс",
-			'msg': "Укажите сумму пополнения",
+			'msg': "Введите сумму пополнения",
 			'msg_with_value': "Сумма *пополнения*: {}",
 			'next': {
-				'confirm': {
+				'profile_confirm': {
 					'btn': "Подтвердить"
 				}
 			}
 		},
 		'withdraw_funds': {
 			'btn': "Вывести средства",
-			'msg': "Укажите сумму вывода",
+			'msg': "Ввведите сумму вывода",
 			'msg_with_value': "Сумма *вывода*: {}",
 			'next': {
-				'confirm': {
+				'profile_confirm': {
 					'btn': "Подтвердить"
 				}
 			}
@@ -174,7 +174,7 @@ profile = {
 			'msg': "Введите PUBG ID",
 			'msg_with_value': "Новый PUBG ID: {}",
 			'next': {
-				'confirm': {
+				'profile_confirm': {
 					'btn': "Подтвердить"
 				}
 			}

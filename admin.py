@@ -76,7 +76,7 @@ def addAdmin(update, context):
 		response = texts.admin_failed
 	update.callback_query.answer(response, show_alert=True)
 	del context.chat_data['add_to_admins']
-	context.chat_data['conv_history'].pop()
+	context.chat_data['history'].pop()
 	return adminMain(update, context)
 
 
@@ -106,15 +106,15 @@ def removeAdmin(update, context):
 	else:
 		response = texts.admin_failed
 	update.callback_query.answer(response, show_alert=True)
-	context.chat_data['conv_history'].pop()
+	context.chat_data['history'].pop()
 	return adminMain(update, context)
 
 
 def back(update, context):
-	last_state = context.chat_data['conv_history'][-1]
+	last_state = context.chat_data['history'][-1]
 	if last_state == 'add_admin' or last_state == 'remove_admin':
-		context.chat_data['conv_history'].pop()
-		update.callback_query.data = context.chat_data['conv_history'][-1]
+		context.chat_data['history'].pop()
+		update.callback_query.data = context.chat_data['history'][-1]
 		return adminMenu(update, context)
 	return menu.back(update, context)
 

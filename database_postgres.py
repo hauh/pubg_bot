@@ -1,20 +1,22 @@
 from logging import getLogger
+from os import getenv
 
-import mysql.connector
+import psycopg2
+import psycopg2.extras
 
-import config
-import queries
+import queries_postgress as queries
 
 ##############################
 
 logger = getLogger('db')
+db_url = getenv('HEROKU_DB')
 
 
 def withConnection(db_request):
 	def executeWithConnection(*args, **kwargs):
 		try:
-			connection = mysql.connector.connect(**config.db_kwargs)
-			cursor = connection.cursor(dictionary=True)
+			connection = psycopg2.connect(db_url, sslmode='require')
+			cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 		except Exception as err:
 			logger.critical(
 				"DB connection failed with:\n{} {}"

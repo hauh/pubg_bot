@@ -22,13 +22,30 @@ import admin
 logger = getLogger('bot')
 
 
+def mainMenu(update, context):
+	user_id = int(update.effective_user.id)
+	chat_id = int(update.effective_chat.id)
+	username = update.effective_user.username
+	user = database.getUser(user_id)
+	if not user or user['chat_id'] != chat_id or user['username'] != username:
+		database.saveUser(user_id, chat_id, username)
+		user = database.getUser(user_id)
+	context.user_data.update(user)
+	return (
+		texts.menu['msg'],
+		texts.menu['buttons'] if user_id in config.admin_id
+			else texts.menu['buttons'][1:]
+	)
+
+
 def error(update, context):
 	logger.error(
 		"Update: {}\nError: {}, argument: {}"
 			.format(update, type(context.error).__name__, context.error)
 	)
-	update.effective_chat.send_message(texts.error)
-	return menu.mainMenu(update, context)
+	context.chat_data['old_messages'].append(
+		update.effective_chat.send_message(texts.error))
+	return mainMenu(update, context)
 
 
 def main():
@@ -48,15 +65,15 @@ def main():
 	)
 	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(
-		CommandHandler('start', menu.mainMenu, filters=Filters.private))
-	dispatcher.add_handler(CallbackQueryHandler(menu.mainMenu, pattern=r'^main$'))
-	dispatcher.add_handler(matches.handler)
-	dispatcher.add_handler(rooms.handler)
-	dispatcher.add_handler(profile.handler)
-	dispatcher.add_handler(admin.handler)
-	dispatcher.add_handler(menu.MenuHandler(texts.menu))
-	dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
+	dispatcher.add_handler(menu.MenuHandler(
+		texts.menu,
+		[
+			matches.callbacks,
+			profile.callbacks,
+			{'main': mainMenu},
+		])
+	)
+	# dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")
