@@ -3,15 +3,6 @@ tables = (
 		SET timezone = 'Europe/Moscow'
 	""",
 	"""
-		CREATE TYPE mode_t AS ENUM ('solo', 'dual', 'squad', 'payload', 'zombie')
-	""",
-	"""
-		CREATE TYPE view_t AS ENUM ('1st', '3rd')
-	""",
-	"""
-		CREATE TYPE bet_t AS ENUM ('30', '60', '90')
-	""",
-	"""
 		CREATE TABLE IF NOT EXISTS matches (
 			id			SERIAL PRIMARY KEY,
 			mode		mode_t,
