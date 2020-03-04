@@ -18,8 +18,6 @@ profile_menu = texts.menu['next']['profile']
 
 
 def profileMain(update, context):
-	if 'user_input' in context.user_data:
-		del context.user_data['user_input']
 	return (
 		profile_menu['msg'].format(
 			update.effective_user.id,
@@ -45,29 +43,29 @@ def balanceHistory(update, context):
 			)
 	else:
 		message = current_menu['msg']
-	return (
-		message,
-		profile_menu['next']['balance_history']['buttons'],
-	)
+	return (message, current_menu['buttons'])
 
 
 def updateProfile(update, context):
-	show_confirm = False
-	if 'user_input' in context.chat_data:
-		what_to_update = context.chat_data['history'].pop()
-		if re.match(r'^[0-9]+$', context.chat_data['user_input']):
-			show_confirm = True
-		else:
-			del context.chat_data['user_input']
-	else:
-		what_to_update = update.callback_query.data
+	user_input = context.chat_data.pop('user_input', None)
+	if user_input:
+		return doUpdate(update, context, user_input)
+
+	what_to_update = context.chat_data['history'][-1]
 	current_menu = profile_menu['next'][what_to_update]
-	if show_confirm:
-		message = current_menu['msg_with_value'].format(
-			context.chat_data['user_input'])
+	if not update.callback_query and update.effective_message.text:
+		return validateAndConfirm(update, context, current_menu)
+	return (current_menu['msg'], current_menu['buttons'][1:])
+
+
+def validateAndConfirm(update, context, current_menu):
+	user_input = update.effective_message.text
+	if re.match(r'^[0-9]+$', user_input):
+		context.chat_data['user_input'] = user_input
+		message = current_menu['input']['msg_valid'].format(user_input)
 		buttons = current_menu['buttons']
 	else:
-		message = current_menu['msg']
+		message = current_menu['input']['msg_error']
 		buttons = current_menu['buttons'][1:]
 	return (message, buttons)
 
@@ -102,23 +100,19 @@ update_profile_callbacks = {
 }
 
 
-def doUpdate(update, context):
+def doUpdate(update, context, validated_input):
 	what_to_update = context.chat_data['history'].pop()
 	result = update_profile_callbacks[what_to_update](
 		int(update.effective_user.id),
 		context.user_data,
-		int(context.chat_data['user_input'])
+		int(validated_input)
 	)
 	update.callback_query.answer(result, show_alert=True)
-	del context.chat_data['user_input']
 	return profileMain(update, context)
 
 
 callbacks = {
-	'profile'			: profileMain,
-	'balance_history'	: balanceHistory,
-	'add_funds'			: updateProfile,
-	'withdraw_funds'	: updateProfile,
-	'set_pubg_id'		: updateProfile,
-	'profile_confirm'	: doUpdate,
+	r'^profile$'									: profileMain,
+	r'^balance_history$'							: balanceHistory,
+	r'^(add_funds)|(withdraw_funds)|(set_pubg_id)$'	: updateProfile,
 }

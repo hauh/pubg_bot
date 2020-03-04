@@ -1,3 +1,4 @@
+import re
 from logging import getLogger
 
 from telegram import (
@@ -29,12 +30,17 @@ class MenuHandler(Handler):
 		return False
 
 	def handle_update(self, update, dispatcher, check_result, context):
-		if 'history' not in context.chat_data:
-			context.chat_data['history'] = []
-		history = context.chat_data['history']
-		print(history)
+		history = context.chat_data.setdefault('history', [])
+		old_messages = context.chat_data.setdefault('old_messages', [])
 
 		next_state = self._getNextState(update, context, history)
+		if next_state in history:
+			del history[history.index(next_state) + 1:]
+		else:
+			history.append(next_state)
+		if next_state == 'main' or next_state == 'back':
+			context.chat_data.pop('user_input', None)
+
 		callback = self._findCallback(next_state)
 		if callback:
 			text, buttons = callback(update, context)
@@ -44,37 +50,31 @@ class MenuHandler(Handler):
 				menu = self.menu
 			text, buttons = menu['msg'], menu['buttons']
 
-		self._cleanChat(context.chat_data)
+		self._cleanChat(old_messages)
 		messages = self._splitText(text)
-		self._sendMessages(update, context, messages, buttons)
-		if next_state in history:
-			del history[history.index(next_state) + 1:]
-		else:
-			history.append(next_state)
-		print(history)
-		print('\n')
+		self._sendMessages(update, context, messages, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
-		if update.callback_query:
-			if update.callback_query.data == 'back':
-				if len(history) > 1:
-					history.pop()
-				return history[-1]
-			return update.callback_query.data
-		user_input = update.effective_message.text
-		update.effective_message.delete()
-		if not user_input or user_input == '/start' or len(history) == 0:
-			return 'main'
-		context.chat_data['user_input'] = user_input
-		return history[-1]
+		if not update.callback_query:
+			message = update.effective_message
+			context.chat_data['old_messages'].append(message)
+			if message.text == '/start' or len(history) == 0:
+				return 'main'
+			return history[-1]
+
+		if update.callback_query.data == 'back':
+			if len(history) > 1:
+				history.pop()
+			return history[-1]
+		if update.callback_query.data == 'confirm':
+			return history[-1]
+		return update.callback_query.data
 
 	def _findCallback(self, next_state):
-		callback = self.callbacks.get(next_state, None)
-		if not callback:
-			for key in self.callbacks.keys():
-				if next_state.startswith(key):
-					return self.callbacks[key]
-		return callback
+		for pattern, callback in self.callbacks.items():
+			if re.match(pattern, next_state):
+				return callback
+		return None
 
 	def _findMenu(self, menu, next_state):
 		try:
@@ -87,14 +87,6 @@ class MenuHandler(Handler):
 						return deeper_result
 		return None
 
-	def _cleanChat(self, chat_data):
-		if 'old_messages' in chat_data:
-			for message in chat_data['old_messages']:
-				try:
-					message.delete()
-				except Exception:
-					pass
-
 	def _splitText(self, text):
 		messages = []
 		i = 0
@@ -105,14 +97,20 @@ class MenuHandler(Handler):
 		messages.append(text[i:])
 		return messages
 
-	def _sendMessages(self, update, context, messages, buttons):
-		sent_messages = []
+	def _cleanChat(self, old_messages):
+		for message in old_messages:
+			try:
+				message.delete()
+			except Exception:
+				pass
+		old_messages.clear()
+
+	def _sendMessages(self, update, context, messages, buttons, old_messages):
 		for message in messages:
-			sent_messages.append(
+			old_messages.append(
 				update.effective_chat.send_message(
 					message,
 					reply_markup=InlineKeyboardMarkup(buttons)
 						if message == messages[-1] else None
 				)
 			)
-		context.chat_data['old_messages'] = sent_messages

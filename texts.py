@@ -152,31 +152,25 @@ profile = {
 		'add_funds': {
 			'btn': "Пополнить баланс",
 			'msg': "Введите сумму пополнения",
-			'msg_with_value': "Сумма *пополнения*: {}",
-			'next': {
-				'profile_confirm': {
-					'btn': "Подтвердить"
-				}
+			'input': {
+				'msg_valid': "Сумма *пополнения*: {}",
+				'msg_error': "Невалидное значение",
 			}
 		},
 		'withdraw_funds': {
 			'btn': "Вывести средства",
 			'msg': "Ввведите сумму вывода",
-			'msg_with_value': "Сумма *вывода*: {}",
-			'next': {
-				'profile_confirm': {
-					'btn': "Подтвердить"
-				}
+			'input': {
+				'msg_valid': "Сумма *вывода*: {}",
+				'msg_error': "Невалидное значение",
 			}
 		},
 		'set_pubg_id': {
 			'btn': "Установить PUBG ID",
 			'msg': "Введите PUBG ID",
-			'msg_with_value': "Новый PUBG ID: {}",
-			'next': {
-				'profile_confirm': {
-					'btn': "Подтвердить"
-				}
+			'input': {
+				'msg_valid': "Новый PUBG ID: {}",
+				'msg_error': "ID не найден",
 			}
 		},
 	}
@@ -207,12 +201,9 @@ admin = {
 						"Введите юзернейм нового администратора. "
 						"У него должен быть диалог с ботом"
 					),
-					'msg_with_value': "Найден пользователь: @{}",
-					'msg_with_error': "Такой пользователь не найден. Проверьте юзернейм",
-					'next': {
-						'confirm': {
-							'btn': "Подтвердить",
-						}
+					'input': {
+						'msg_valid': "Найден пользователь: @{}",
+						'msg_error': "Такой пользователь не найден. Проверьте юзернейм",
 					}
 				},
 				'remove_admin': {
@@ -236,9 +227,10 @@ admin = {
 menu['next']['admin'].update(admin)
 admin_added = "Администратор добавлен!"
 admin_removed = "Администартор удалён!"
-admin_failed = "Не получилось"
+admin_update_failed = "Не получилось"
 
 # misc
 error = "Ошибка. Попробуйте заново"
 back = "Назад"
 main = "В главное меню"
+confirm = "Подтвердить"

@@ -2,10 +2,7 @@ import sys
 from logging import getLogger
 
 from telegram import ParseMode
-from telegram.ext import (
-	Defaults, Filters, Updater, CallbackQueryHandler, CommandHandler
-)
-
+from telegram.ext import Defaults, Updater, Filters, CommandHandler
 
 import config
 import database
@@ -13,7 +10,6 @@ import texts
 import buttons
 import menu
 import matches
-import rooms
 import profile
 import admin
 
@@ -39,13 +35,16 @@ def mainMenu(update, context):
 
 
 def error(update, context):
-	logger.error(
-		"Update: {}\nError: {}, argument: {}"
-			.format(update, type(context.error).__name__, context.error)
-	)
-	context.chat_data['old_messages'].append(
-		update.effective_chat.send_message(texts.error))
-	return mainMenu(update, context)
+	logger.error("History: {}, Error: {}, Argument: {}".format(
+		context.chat_data.get('history'),
+		type(context.error).__name__,
+		context.error
+	))
+	if update.callback_query:
+		update.callback_query.answer(texts.error, show_alert=True)
+	else:
+		context.chat_data.setdefault('old_messages', []).append(
+			update.effective_chat.send_message(texts.error))
 
 
 def main():
@@ -55,8 +54,7 @@ def main():
 		logger.critical("Database required!")
 		sys.exit(-1)
 
-	buttons.generateButtons(texts.menu)
-	buttons.updateSpecialButtons()
+	buttons.updateMenuWithButtons()
 
 	updater = Updater(
 		token=config.bot_token,
@@ -68,12 +66,12 @@ def main():
 	dispatcher.add_handler(menu.MenuHandler(
 		texts.menu,
 		[
+			{'main': mainMenu},
+			admin.callbacks,
 			matches.callbacks,
 			profile.callbacks,
-			{'main': mainMenu},
 		])
 	)
-	# dispatcher.add_handler(CallbackQueryHandler(menu.back, pattern=r'^back$'))
 	dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")

@@ -13,18 +13,26 @@ def createButton(button_msg, button_key):
 	)
 
 
+back_button = createButton(texts.back, 'back')
+main_button = createButton(texts.main, 'main')
+confirm_button = createButton(texts.confirm, 'confirm')
+
+
 def generateButtons(menu, depth=0):
-	menu['buttons'] = []
+	buttons = []
+	if 'input' in menu:
+		buttons.append([confirm_button])
 	if 'next' in menu:
 		for button_key, button_data in menu['next'].items():
-			menu['buttons'].append([createButton(button_data['btn'], button_key)])
+			buttons.append([createButton(button_data['btn'], button_key)])
 			generateButtons(button_data, depth + 1)
-	if depth:
-		navigation = [createButton(texts.back, 'back')]
-		if depth > 1:
-			navigation.append(createButton(texts.main, 'main'))
-		menu['buttons'].append(navigation)
+	if depth > 1:
+		buttons.append([back_button, main_button])
+	elif depth:
+		buttons.append([back_button])
+	menu['buttons'] = buttons
 
 
-def updateSpecialButtons():
+def updateMenuWithButtons():
+	generateButtons(texts.menu)
 	texts.menu['next']['rooms']['buttons'][0][0].url = config.battle_chat

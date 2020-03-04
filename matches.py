@@ -35,10 +35,7 @@ def matchesMain(update, context):
 				else matches_menu['default']
 			for filter_type in filter_types
 	}
-	msg_format.update({
-		'match': context.user_data['slot']
-			if 'slot' in context.user_data else '-'
-	})
+	msg_format.update({'match': context.user_data.get('slot', '-')})
 	return (
 		matches_menu['msg'].format(**msg_format),
 		matches_menu['buttons'] if show_reset else matches_menu['buttons'][1:]
@@ -95,34 +92,22 @@ def pickSlot(update, context):
 	return matchesMain(update, context)
 
 
-def chooseFilter(update, context):
-	next_state = update.callback_query.data
-	current_menu = matches_menu['next'][next_state]
-	return (current_menu['msg'], current_menu['buttons'])
-
-
 def getFilterSetting(update, context):
+	context.chat_data['history'].pop()
 	filter_type = context.chat_data['history'].pop()
 	context.user_data[filter_type] = update.callback_query.data
 	return matchesMain(update, context)
 
 
+filter_values_regex = r'^({})$'.format(')|('.join(
+	filter_value
+		for filter_type in filter_types
+			for filter_value in matches_menu['next'][filter_type]['next'].keys()
+))
 callbacks = {
-	'matches'		: matchesMain,
-	'reset'			: reset,
-	'mode'			: chooseFilter,
-	'solo'			: getFilterSetting,
-	'dual'			: getFilterSetting,
-	'squad'			: getFilterSetting,
-	'payload'		: getFilterSetting,
-	'zombie'		: getFilterSetting,
-	'view'			: chooseFilter,
-	'1st'			: getFilterSetting,
-	'3rd'			: getFilterSetting,
-	'bet'			: chooseFilter,
-	'30'			: getFilterSetting,
-	'60'			: getFilterSetting,
-	'90'			: getFilterSetting,
-	'choose_slot'	: slotsList,
-	'slot_'			: pickSlot
+	r'^matches$'		: matchesMain,
+	r'^reset$'			: reset,
+	filter_values_regex	: getFilterSetting,
+	r'^choose_slot$'	: slotsList,
+	r'^slot_[0-9]+$'	: pickSlot
 }
