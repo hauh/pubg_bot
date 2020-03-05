@@ -2,7 +2,7 @@ import sys
 from logging import getLogger
 
 from telegram import ParseMode
-from telegram.ext import Defaults, Updater, Filters, CommandHandler
+from telegram.ext import Defaults, Updater
 
 import config
 import database
@@ -12,6 +12,7 @@ import menu
 import matches
 import profile
 import admin
+import jobs
 
 ########################
 
@@ -61,9 +62,10 @@ def main():
 		use_context=True,
 		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
 	)
-	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(menu.MenuHandler(
+	jobs.scheduleJobs(updater.job_queue)
+
+	updater.dispatcher.add_handler(menu.MenuHandler(
 		texts.menu,
 		[
 			{'main': mainMenu},
@@ -72,7 +74,7 @@ def main():
 			profile.callbacks,
 		])
 	)
-	dispatcher.add_error_handler(error)
+	updater.dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")
 
