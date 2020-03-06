@@ -2,7 +2,7 @@ from logging import getLogger
 from datetime import datetime, timedelta
 
 import texts
-from slots import Slot
+from slot import Slot
 
 ###############
 
@@ -10,7 +10,7 @@ logger = getLogger(__name__)
 
 
 def startMatch(slot):
-	logger.info(f"Slot {slot.slot_id} expired, users: {slot.user_count}")
+	logger.info(f"Slot {slot.slot_id} expired, users: {len(slot.players)}")
 	pass
 
 

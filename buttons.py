@@ -21,8 +21,6 @@ reset_button = createButton(texts.reset, 'reset')
 
 def generateButtons(menu, depth=0):
 	buttons = []
-	if 'input' in menu:
-		buttons.append([confirm_button])
 	if 'next' in menu:
 		for button_key, button_data in menu['next'].items():
 			if 'btn' in button_data:

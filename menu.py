@@ -38,8 +38,6 @@ class MenuHandler(Handler):
 			del history[history.index(next_state) + 1:]
 		else:
 			history.append(next_state)
-		if next_state == 'main' or next_state == 'back':
-			context.chat_data.pop('user_input', None)
 
 		callback = self._findCallback(next_state)
 		if callback:
@@ -50,24 +48,30 @@ class MenuHandler(Handler):
 				menu = self.menu
 			text, buttons = menu['msg'], menu['buttons']
 
+		context.chat_data.pop('user_input', None)
 		self._cleanChat(old_messages)
 		messages = self._splitText(text)
 		self._sendMessages(update, context, messages, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
-		if not update.callback_query:
+		if update.callback_query:
+			if update.callback_query.data == 'back':
+				if len(history) > 1:
+					history.pop()
+				update.callback_query.data = history[-1]
+			elif re.match(r'^confirm', update.callback_query.data):
+				context.chat_data['validated_input'] =\
+					update.callback_query.data.lstrip('confirm_')
+				update.callback_query.data = history[-1]
+		else:
 			message = update.effective_message
 			context.chat_data['old_messages'].append(message)
-			if message.text == '/start' or len(history) == 0:
-				return 'main'
-			return history[-1]
-
-		if update.callback_query.data == 'back':
-			if len(history) > 1:
-				history.pop()
-			return history[-1]
-		if update.callback_query.data == 'confirm':
-			return history[-1]
+			update.callback_query = CallbackQuery(
+				0, update.effective_user, update.effective_chat,
+				data='main' if message.text == '/start' or len(history) == 0
+					else history[-1]
+			)
+			context.chat_data['user_input'] = message.text
 		return update.callback_query.data
 
 	def _findCallback(self, next_state):

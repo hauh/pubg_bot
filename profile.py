@@ -10,6 +10,7 @@ import config
 import texts
 import menu
 import database
+import buttons
 
 #######################
 
@@ -47,27 +48,24 @@ def balanceHistory(update, context):
 
 
 def updateProfile(update, context):
-	user_input = context.chat_data.pop('user_input', None)
-	if user_input:
-		return doUpdate(update, context, user_input)
+	validated_input = context.chat_data.pop('validated_input', None)
+	if validated_input:
+		return doUpdate(update, context, validated_input)
 
 	what_to_update = context.chat_data['history'][-1]
 	current_menu = profile_menu['next'][what_to_update]
-	if not update.callback_query and update.effective_message.text:
-		return validateAndConfirm(update, context, current_menu)
-	return (current_menu['msg'], current_menu['buttons'][1:])
+	user_input = context.chat_data.pop('user_input', None)
 
-
-def validateAndConfirm(update, context, current_menu):
-	user_input = update.effective_message.text
-	if re.match(r'^[0-9]+$', user_input):
-		context.chat_data['user_input'] = user_input
+	confirm_button = []
+	if not user_input:
+		message = current_menu['msg']
+	elif re.match(r'^[0-9]+$', user_input):
 		message = current_menu['input']['msg_valid'].format(user_input)
-		buttons = current_menu['buttons']
+		confirm_button = [buttons.createButton(
+			texts.confirm, f'confirm_{user_input}')]
 	else:
 		message = current_menu['input']['msg_error']
-		buttons = current_menu['buttons'][1:]
-	return (message, buttons)
+	return (message, [confirm_button] + current_menu['buttons'])
 
 
 def addFunds(user_id, user_data, new_value):

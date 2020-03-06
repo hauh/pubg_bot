@@ -23,28 +23,32 @@ def adminMain(update, context):
 
 
 def addAdmin(update, context):
-	current_menu = admin_menu['next']['manage_admins']['next']['add_admin']
-	user_input = context.chat_data.get('user_input', None)
-	if user_input:
-		if database.updateAdmin(user_input, True):
+	validated_input = context.chat_data.pop('validated_input', None)
+	if validated_input:
+		if database.updateAdmin(validated_input, True):
 			response = texts.admin_added
 		else:
 			response = texts.admin_update_failed
 		update.callback_query.answer(response, show_alert=True)
 		context.chat_data['history'].pop()
 		return adminMain(update, context)
+
+	current_menu = admin_menu['next']['manage_admins']['next']['add_admin']
+	user_input = context.chat_data.pop('user_input', None)
+	confirm_button = []
+	if not user_input:
+		message = current_menu['msg']
+	else:
+		admin = database.getUser(username=user_input)
+		if admin:
+			message = current_menu['input']['msg_valid'].format(admin['username'])
+			confirm_button = [buttons.createButton(
+				texts.confirm, f"confirm_{admin['id']}")]
+		else:
+			message = current_menu['input']['msg_error']
 	if not update.callback_query and update.effective_message.text:
 		return validateAndConfirm(update, context, current_menu)
-	return (current_menu['msg'], current_menu['buttons'][1:])
-
-
-def validateAndConfirm(update, context, current_menu):
-	user_input = update.effective_message.text
-	admin = database.getUser(username=user_input)
-	if not admin:
-		return (current_menu['input']['msg_error'], current_menu['buttons'][1:])
-	context.chat_data['user_input'] = admin['id']
-	return (current_menu['input']['msg_valid'], current_menu['butttons'])
+	return (message, [confirm_button] + current_menu['buttons'])
 
 
 def listAdmins(update, context):
@@ -76,7 +80,7 @@ def removeAdmin(update, context):
 
 callbacks = {
 	r'^admin$'			: adminMain,
-	r'^add_admins$'		: addAdmin,
+	r'^add_admin$'		: addAdmin,
 	r'^remove_admin$'	: listAdmins,
 	r'^remove_[0-9]+$'	: removeAdmin,
 }
