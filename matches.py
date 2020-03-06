@@ -72,8 +72,8 @@ def setupSlot(update, context, slot=None):
 				if chosen_value else current_menu['default']
 					for setting, chosen_value in chosen_settings.items()
 		}),
-		[[confirm_button]] if all(chosen_settings.values())
-			else [] + current_menu['buttons']
+		([[confirm_button]] if all(chosen_settings.values())
+			else []) + current_menu['buttons']
 	)
 
 
