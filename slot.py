@@ -21,7 +21,7 @@ class Slot:
 		self.slot_id = Slot.slots_count
 		Slot.slots_count += 1
 
-		logger.info(f"New slot ({self.time_string}) created")
+		logger.info(f"New slot ({self.time_string}) has been created")
 
 	def __str__(self):
 		return "{time} - {players} - {mode} - {view} - {bet}".format(
@@ -44,15 +44,15 @@ class Slot:
 		return buttons.createButton(button_text, f'slot_{self.slot_id}')
 
 	def join(self, user_id):
-		self.players.add(user_id)
+		self.players.add(int(user_id))
 
 	def leave(self, user_id):
-		self.players.discard(user_id)
+		self.players.discard(int(user_id))
 		if not self.players:
 			self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 
 	def full(self):
-		return len(self.players) == 70
+		return len(self.players) >= 70
 
 	def isSet(self):
 		return all(self.settings.values())
