@@ -1,17 +1,19 @@
 tables = (
 	"""
+		SET timezone = 'Europe/Moscow'
+	""",
+	"""
 		CREATE TABLE IF NOT EXISTS matches (
-			id			INT PRIMARY KEY AUTO_INCREMENT,
-			mode		ENUM('solo', 'dual', 'squad', 'payload', 'zombie'),
-			view		ENUM('1st', '3rd'),
-			bet			ENUM('30', '60', '90'),
+			id			SERIAL PRIMARY KEY,
+			mode		mode_t,
+			view		view_t,
+			bet			bet_t,
 			closed		BOOL DEFAULT false
 		)
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS users (
 			id			INT PRIMARY KEY,
-			chat_id		INT NOT NULL,
 			pubg_id		INT,
 			username	VARCHAR(32),
 			balance		INT	DEFAULT 0,
@@ -20,10 +22,10 @@ tables = (
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS balance_history (
-			id			INT PRIMARY KEY AUTO_INCREMENT,
+			id			SERIAL PRIMARY KEY,
 			amount		INT NOT NULL,
 			user_id		INT,
-			date		DATETIME,
+			date		TIMESTAMPTZ,
 			FOREIGN 	KEY (user_id) REFERENCES users (id)
 		)
 	""",
@@ -52,10 +54,9 @@ get_user_by_username =\
 
 save_user =\
 	"""
-		INSERT INTO users (id, chat_id, username) VALUES (%s, %s, %s)
-			ON DUPLICATE KEY UPDATE
-				chat_id = VALUES(chat_id),
-				username = VALUES(username)
+		INSERT INTO users (id, username) VALUES (%s, %s)
+			ON CONFLICT (id) DO UPDATE SET
+				username = EXCLUDED.username
 	"""
 
 update_balance = (

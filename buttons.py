@@ -35,4 +35,4 @@ def generateButtons(menu, depth=0):
 
 def updateMenuWithButtons():
 	generateButtons(texts.menu)
-	texts.menu['next']['rooms']['buttons'][0][0].url = config.battle_chat
+	texts.menu['buttons'][5][0].url = config.battle_chat

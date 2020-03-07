@@ -69,8 +69,7 @@ def updateProfile(update, context):
 
 
 def addFunds(user_id, user_data, new_value):
-	database.updateBalance(user_id, new_value)
-	user_data['balance'] = database.getUser(user_id)['balance']
+	user_data['balance'] = database.updateBalance(user_id, new_value)
 	return texts.funds_added
 
 
@@ -78,8 +77,7 @@ def withdrawFunds(user_id, user_data, new_value):
 	current_funds = database.getUser(user_id)['balance']
 	if current_funds < new_value:
 		return texts.insufficient_funds
-	database.updateBalance(user_id, -new_value)
-	user_data['balance'] = current_funds - new_value
+	user_data['balance'] = database.updateBalance(user_id, -new_value)
 	return texts.funds_withdrawn
 
 

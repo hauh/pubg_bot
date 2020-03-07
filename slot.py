@@ -16,9 +16,7 @@ class Slot:
 		self.time_string = time.strftime("%H:%M")
 		self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 		self.players = set()
-		self.paying_players = set()
-		self.chat_id = None
-		self.game_id = None
+		self.pubg_id = None
 		self.slot_id = Slot.slots_count
 		Slot.slots_count += 1
 
@@ -33,12 +31,33 @@ class Slot:
 			bet=self.settings['bet']
 		)
 
+	@property
+	def bet(self):
+		return int(self.settings['bet'])
+
+	@property
+	def full(self):
+		return len(self.players) >= 100
+
+	@property
+	def ready(self):
+		return len(self.players) >= 70
+
+	@property
+	def isSet(self):
+		return all(self.settings.values())
+
+	@property
+	def done(self):
+		# pubg request
+		pass
+
 	def createButton(self, leave=False):
 		if leave:
 			button_text = f"{self.time_string} - {texts.leave_match}"
 		elif not self.players:
 			button_text = f"{self.time_string} - {texts.free_slot}"
-		elif self.full():
+		elif self.full:
 			button_text = f"{self.time_string} - {texts.full_slot}"
 		else:
 			button_text = str(self)
@@ -47,28 +66,12 @@ class Slot:
 	def join(self, user_id):
 		self.players.add(int(user_id))
 
-	def paid(self, user_id):
-		self.paying_players.add(int(user_id))
-
 	def leave(self, user_id):
 		self.players.discard(int(user_id))
 		if not self.players:
 			self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 
-	def full(self):
-		return len(self.players) >= 70
-
-	def ready(self):
-		return len(self.paying_players) >= 50
-
-	def isSet(self):
-		return all(self.settings.values())
-
-	def done(self):
-		# pubg request
-		pass
-
-	def payout(self):
+	def reward(self):
 		# pubg request
 		winners = set()  # of tuples (winner_id, place, prize)
 		return winners

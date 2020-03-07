@@ -4,7 +4,7 @@ from os import getenv
 import psycopg2
 import psycopg2.extras
 
-import queries_postgress as queries
+import queries as queries
 
 ##############################
 
@@ -24,7 +24,7 @@ def withConnection(db_request):
 			)
 			raise
 		try:
-			result = db_request(*args, **kwargs, cursor=cursor)
+			result = db_request(cursor, *args, **kwargs)
 		except Exception as err:
 			logger.error(
 				"DB query failed with:\n{} {}"
@@ -41,72 +41,59 @@ def withConnection(db_request):
 
 
 @withConnection
-def prepareDB(cursor=None):
-	for table in queries.tables:
-		cursor.execute(table)
+def prepareDB(cursor):
+	for create_table in queries.tables:
+		cursor.execute(create_table)
 	logger.info("Database ready!")
 
 
 @withConnection
-def saveMatches(cursor=None):
-	for mode in ['solo', 'dual', 'squad']:
-		for view in ['1st', '3rd']:
-			for bet in ['30', '60', '90']:
-				cursor.execute(
-					"""
-						INSERT INTO matches(mode, view, bet)
-						VALUES (%s, %s, %s)
-					""",
-					(mode, view, bet)
-				)
-	logger.info("Matches updated")
-
-
-@withConnection
-def getMatches(filters, cursor=None):
+def getMatches(cursor, filters):
 	cursor.execute(queries.get_matches, filters)
 	return cursor.fetchall()
 
 
 @withConnection
-def getUser(user_id=None, username=None, cursor=None):
+def getUser(cursor, user_id=None, username=None):
 	cursor.execute(queries.get_user, {'id': user_id, 'username': username})
 	return cursor.fetchone()
 
 
 @withConnection
-def saveUser(user_id, chat_id, username, cursor=None):
-	cursor.execute(queries.save_user, (user_id, chat_id, username))
+def saveUser(cursor, user_id, username):
+	cursor.execute(queries.save_user, (user_id, username))
 	logger.info("New user {} has been registered".format(user_id))
 
 
 @withConnection
-def updateBalance(user_id, amount, cursor=None):
+def updateBalance(cursor, user_id, amount):
 	for query in queries.update_balance:
 		cursor.execute(query, (amount, user_id,))
+	cursor.execute(queries.get_user, {'id': user_id, 'username': None})
 	logger.info("Balance of {} has been changed for {}".format(user_id, amount))
+	return cursor.fetchone()['balance']
 
 
 @withConnection
-def updatePubgID(user_id, pubg_id, cursor=None):
+def updatePubgID(cursor, user_id, pubg_id):
 	cursor.execute(queries.update_pubg_id, (pubg_id, user_id,))
 	logger.info("User {} has set their PUBG ID to {}".format(user_id, pubg_id))
 
 
 @withConnection
-def getBalanceHistory(user_id=None, cursor=None):
+def getBalanceHistory(cursor, user_id=None):
 	cursor.execute(queries.get_balance_history, {'user_id': user_id})
 	return cursor.fetchall()
 
 
 @withConnection
-def getAdmins(cursor=None):
+def getAdmins(cursor):
 	cursor.execute(queries.get_admins)
 	return cursor.fetchall()
 
 
 @withConnection
-def updateAdmin(user_id, new_status, cursor=None):
+def updateAdmin(cursor, user_id, new_status):
 	cursor.execute(queries.update_admin, (new_status, user_id))
 	if cursor.rowcount == 0:
 		return False

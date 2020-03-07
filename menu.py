@@ -49,6 +49,7 @@ class MenuHandler(Handler):
 			text, buttons = menu['msg'], menu['buttons']
 
 		context.chat_data.pop('user_input', None)
+
 		self._cleanChat(old_messages)
 		messages = self._splitText(text)
 		self._sendMessages(update, context, messages, buttons, old_messages)

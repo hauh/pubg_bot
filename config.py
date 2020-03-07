@@ -17,6 +17,7 @@ db_kwargs = {
 }
 
 # api
+pubg_api_key = getenv('PUBG_KEY')
 
 # logger
 logging.basicConfig(
