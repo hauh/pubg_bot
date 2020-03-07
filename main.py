@@ -28,10 +28,47 @@ def mainMenu(update, context):
 		database.saveUser(user_id, chat_id, username)
 		user = database.getUser(user_id)
 	context.user_data.update(user)
+	message = texts.menu['msg']
+	if 'awaiting_payment' in context.user_data:
+		message += texts.game_awaits_payment
+	if 'paid_game' in context.user_data:
+		message += texts.game_starts_soon
+	admin_button = 0 if user_id in config.admin_id else 1
+	confirm_match_button = None if 'awaiting_payment' in context.user_data else -1
+	return (message, texts.menu['buttons'][admin_button:confirm_match_button])
+
+
+def payForGame(update, context):
+	game = context.user_data.get('awaiting_payment', None)
+	user_id = int(update.effective_user.id)
+
+	if not game or user_id in game.paying_users:
+		return mainMenu(update, context)
+
+	validated_input = context.chat_data.pop('validated_input', None)
+	if validated_input:
+		answer = profile.withdrawFunds(user_id, context.user_data, new_value)
+		update.callback_query.answer(answer, show_alert=True)
+		if answer == texts.funds_withdrawn:
+			game.paid(user_id)
+			context.user_data['paid_game'] = context.user_data.pop('awaiting_payment')
+		return mainMenu(update, context)
+
+	confirm_button = []
+	message = texts.confirmation_menu['msg'].format(
+		game=str(game),
+		balance=context.user_data['balance'],
+		bet=game.settings['bet']
+	)
+	if context.user_data['balance'] < int(game.settings['bet']):
+		message += texts.too_expensive_match
+	else:
+		confirm_button = [buttons.createButtons(
+			texts.confirmation_menu, f'confirm_{game.slot_id}'
+		)]
 	return (
-		texts.menu['msg'],
-		texts.menu['buttons'] if user_id in config.admin_id
-			else texts.menu['buttons'][1:]
+		message,
+		[confirm_button] + texts.menu['next']['pay_for_game']['buttons']
 	)
 
 
@@ -46,6 +83,12 @@ def error(update, context):
 	else:
 		context.chat_data.setdefault('old_messages', []).append(
 			update.effective_chat.send_message(texts.error))
+
+
+main_callbacks = {
+	r'^main$'			: mainMenu,
+	r'^pay_for_game$'	: payForGame,
+}
 
 
 def main():
@@ -68,7 +111,7 @@ def main():
 	updater.dispatcher.add_handler(menu.MenuHandler(
 		texts.menu,
 		[
-			{'main': mainMenu},
+			main_callbacks,
 			admin.callbacks,
 			matches.callbacks,
 			profile.callbacks,

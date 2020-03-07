@@ -16,6 +16,7 @@ class Slot:
 		self.time_string = time.strftime("%H:%M")
 		self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 		self.players = set()
+		self.paying_players = set()
 		self.chat_id = None
 		self.game_id = None
 		self.slot_id = Slot.slots_count
@@ -46,6 +47,9 @@ class Slot:
 	def join(self, user_id):
 		self.players.add(int(user_id))
 
+	def paid(self, user_id):
+		self.paying_players.add(int(user_id))
+
 	def leave(self, user_id):
 		self.players.discard(int(user_id))
 		if not self.players:
@@ -54,5 +58,17 @@ class Slot:
 	def full(self):
 		return len(self.players) >= 70
 
+	def ready(self):
+		return len(self.paying_players) >= 50
+
 	def isSet(self):
 		return all(self.settings.values())
+
+	def done(self):
+		# pubg request
+		pass
+
+	def payout(self):
+		# pubg request
+		winners = set()  # of tuples (winner_id, place, prize)
+		return winners

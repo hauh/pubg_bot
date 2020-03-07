@@ -79,7 +79,7 @@ def withdrawFunds(user_id, user_data, new_value):
 	if current_funds < new_value:
 		return texts.insufficient_funds
 	database.updateBalance(user_id, -new_value)
-	user_data['balance'] -= new_value
+	user_data['balance'] = current_funds - new_value
 	return texts.funds_withdrawn
 
 

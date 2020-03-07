@@ -49,7 +49,7 @@ class MenuHandler(Handler):
 			text, buttons = menu['msg'], menu['buttons']
 
 		context.chat_data.pop('user_input', None)
-		MenuHandler.cleanChat(old_messages)
+		self._cleanChat(old_messages)
 		messages = self._splitText(text)
 		self._sendMessages(update, context, messages, buttons, old_messages)
 
@@ -101,8 +101,7 @@ class MenuHandler(Handler):
 		messages.append(text[i:])
 		return messages
 
-	@staticmethod
-	def cleanChat(old_messages):
+	def _cleanChat(self, old_messages):
 		for message in old_messages:
 			try:
 				message.delete()

@@ -16,9 +16,12 @@ slot_settings = ['mode', 'view', 'bet']
 
 def matchesMain(update, context):
 	picked_slots = context.user_data.setdefault('picked_slots', set())
+	all_slots = context.bot_data.get('slots')
+	for expired_slot in picked_slots - set(all_slots):
+		picked_slots.discard(expired_slot)
 	buttons = [[slot.createButton(leave=True)] for slot in picked_slots]
 	if len(picked_slots) < 3:
-		buttons += [[slot.createButton()] for slot in context.bot_data['slots']
+		buttons += [[slot.createButton()] for slot in all_slots
 														if slot not in picked_slots]
 	buttons += matches_menu['buttons']
 	return (
@@ -42,6 +45,7 @@ def pickSlot(update, context):
 		for slot in context.bot_data['slots']:
 			if slot.slot_id == picked_slot_id:
 				found_slot = slot
+				break
 
 	if not found_slot:
 		update.callback_query.answer(texts.match_not_found)
