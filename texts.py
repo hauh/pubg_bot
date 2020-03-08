@@ -119,15 +119,7 @@ matches = {
 	},
 }
 menu['next']['matches'].update(matches)
-pubg_id_not_set = {
-	'msg': "Сначала надо установить свой PUBG ID в профиле",
-	'depth': 1,
-	'next': {
-		'profile': {
-			'btn': "Личный кабинет",
-		},
-	}
-}
+pubg_is_not_set = "Сначала установите свой PUBG ник и ID в личном кабинете"
 free_slot = "Создать матч"
 full_slot = "Слот заполнен"
 match_already_created = "Слот уже был кем-то создан"
@@ -147,15 +139,31 @@ leave_match = "Выйти"
 profile = {
 	'msg': (
 		"*ЛИЧНЫЙ КАБИНЕТ*\n\n"
-		"*Telegram ID*: {}\n"
-		"*PUBG ID*: {}\n"
-		"*Баланс*: {}\n"
+		"*Telegram ID*: {user_id}\n"
+		"*PUBG ник*: {pubg_id}\n"
+		"*PUBG ID*: {pubg_username}\n"
+		"*Баланс*: {balance}\n"
 	),
 	'next': {
-		'balance_history': {
-			'btn': "Посмотреть историю операций",
-			'msg': "Операций не найдено",
-			'next': {}
+		'set_pubg_username': {
+			'btn': "Установить ник PUBG",
+			'msg': "Введите ваш игровой ник",
+			'input': {
+				'msg_valid': "*Новый ник*: {}",
+				'msg_error': "Слишком длинный ник",
+				'msg_success': "Новый ник PUBG установлен",
+				'msg_fail': "Неизвестная ошибка"
+			}
+		},
+		'set_pubg_id': {
+			'btn': "Установить ID PUBG",
+			'msg': "Введите ваш игровой ID",
+			'input': {
+				'msg_valid': "*Новый PUBG ID*: {}",
+				'msg_error': "ID может состоять только из цифр, не более десяти",
+				'msg_success': "Новый PUBG ID установлен",
+				'msg_fail': "Неизвестная ошибка"
+			}
 		},
 		'add_funds': {
 			'btn': "Пополнить баланс",
@@ -163,6 +171,8 @@ profile = {
 			'input': {
 				'msg_valid': "Сумма *пополнения*: {}",
 				'msg_error': "Невалидное значение",
+				'msg_success': "Баланс пополнен",
+				'msg_fail': "Неизвестная ошибка"
 			}
 		},
 		'withdraw_funds': {
@@ -171,15 +181,14 @@ profile = {
 			'input': {
 				'msg_valid': "Сумма *вывода*: {}",
 				'msg_error': "Невалидное значение",
+				'msg_success': "Сумма списана с баланса",
+				'msg_fail': "Недостаточно средств"
 			}
 		},
-		'set_pubg_id': {
-			'btn': "Установить PUBG ID",
-			'msg': "Введите PUBG ID",
-			'input': {
-				'msg_valid': "Новый PUBG ID: {}",
-				'msg_error': "ID не найден",
-			}
+		'balance_history': {
+			'btn': "Посмотреть историю операций",
+			'msg': "Операций не найдено",
+			'next': {}
 		},
 	}
 }
@@ -188,7 +197,6 @@ menu['next']['profile'].update(profile)
 funds_added = "Баланс пополнен"
 insufficient_funds = "Недостаточно средств"
 funds_withdrawn = "Сумма списана с баланса"
-pubg_id_not_found = "Такой PUBG ID не найден"
 pubg_id_is_set = "Новый PUBG ID установлен"
 
 # admin
@@ -214,7 +222,7 @@ admin = {
 						'msg_error': "Такой пользователь не найден. Проверьте юзернейм",
 					}
 				},
-				'remove_admin': {
+				'del_admin': {
 					'btn': "Удалить администратора",
 					'msg': "Администраторы:\n{}\nВыберите, кого удалить",
 					'next': {}

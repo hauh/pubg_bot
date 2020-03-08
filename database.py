@@ -81,6 +81,13 @@ def updatePubgID(cursor, user_id, pubg_id):
 
 
 @withConnection
+def updatePubgUsername(cursor, user_id, pubg_username):
+	cursor.execute(queries.update_pubg_username, (pubg_username, user_id,))
+	logger.info(
+		"User {} has set their PUBG username to {}".format(user_id, pubg_username))
+
+
+@withConnection
 def getBalanceHistory(cursor, user_id=None):
 	cursor.execute(queries.get_balance_history, {'user_id': user_id})
 	return cursor.fetchall()

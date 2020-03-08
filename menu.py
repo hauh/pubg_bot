@@ -17,11 +17,8 @@ logger = getLogger(__name__)
 
 class MenuHandler(Handler):
 
-	def __init__(self, menu, callbacks_lists):
+	def __init__(self, menu):
 		self.menu = menu
-		self.callbacks = {}
-		for callback_list in callbacks_lists:
-			self.callbacks.update(callback_list)
 		super(MenuHandler, self).__init__(callback=None)
 
 	def check_update(self, update):
@@ -39,20 +36,19 @@ class MenuHandler(Handler):
 		else:
 			history.append(next_state)
 
-		callback = self._findCallback(next_state)
-		if callback:
-			text, buttons = callback(update, context)
+		menu = self._findMenu(self.menu, next_state)
+		if not menu:
+			menu = self.menu
+		if 'callback' in menu:
+			text, buttons = menu['callback'](update, context, menu)
 		else:
-			menu = self._findMenu(self.menu, next_state)
-			if not menu:
-				menu = self.menu
 			text, buttons = menu['msg'], menu['buttons']
 
-		context.chat_data.pop('user_input', None)
-
-		self._cleanChat(old_messages)
-		messages = self._splitText(text)
-		self._sendMessages(update, context, messages, buttons, old_messages)
+		if text:
+			context.chat_data.pop('user_input', None)
+			self._cleanChat(old_messages)
+			messages = self._splitText(text)
+			self._sendMessages(update, context, messages, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
 		if update.callback_query:
@@ -75,21 +71,14 @@ class MenuHandler(Handler):
 			context.chat_data['user_input'] = message.text
 		return update.callback_query.data
 
-	def _findCallback(self, next_state):
-		for pattern, callback in self.callbacks.items():
-			if re.match(pattern, next_state):
-				return callback
-		return None
-
 	def _findMenu(self, menu, next_state):
-		try:
-			return menu['next'][next_state]
-		except KeyError:
-			if 'next' in menu:
-				for next_menu in menu['next']:
-					deeper_result = self._findMenu(menu['next'][next_menu], next_state)
-					if deeper_result:
-						return deeper_result
+		if 'next' in menu:
+			for next_menu_key, next_menu in menu['next'].items():
+				if re.match(next_menu_key, next_state):
+					return next_menu
+				deeper_result = self._findMenu(next_menu, next_state)
+				if deeper_result:
+					return deeper_result
 		return None
 
 	def _splitText(self, text):
@@ -116,6 +105,6 @@ class MenuHandler(Handler):
 				update.effective_chat.send_message(
 					message,
 					reply_markup=InlineKeyboardMarkup(buttons)
-						if message == messages[-1] else None
+						if message == messages[-1] and buttons else None
 				)
 			)

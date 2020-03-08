@@ -16,9 +16,6 @@ db_kwargs = {
 	'charset'	: 'utf8mb4',
 }
 
-# api
-pubg_api_key = getenv('PUBG_KEY')
-
 # logger
 logging.basicConfig(
 	format='%(asctime)s - %(name)s.%(funcName)s - %(levelname)s - %(message)s',

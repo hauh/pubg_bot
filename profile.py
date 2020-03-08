@@ -18,18 +18,19 @@ logger = getLogger(__name__)
 profile_menu = texts.menu['next']['profile']
 
 
-def profileMain(update, context):
+def main(update, context, menu):
 	return (
 		profile_menu['msg'].format(
-			update.effective_user.id,
-			context.user_data['pubg_id'],
-			context.user_data['balance'],
+			user_id=update.effective_user.id,
+			pubg_id=context.user_data['pubg_username'] or '-',
+			pubg_username=context.user_data['pubg_id'] or '-',
+			balance=context.user_data['balance'],
 		),
 		profile_menu['buttons'],
 	)
 
 
-def balanceHistory(update, context):
+def balanceHistory(update, context, menu):
 	current_menu = profile_menu['next']['balance_history']
 	balance_history = database.getBalanceHistory(int(update.effective_user.id))
 	if balance_history:
@@ -47,68 +48,64 @@ def balanceHistory(update, context):
 	return (message, current_menu['buttons'])
 
 
-def updateProfile(update, context):
-	validated_input = context.chat_data.pop('validated_input', None)
-	if validated_input:
-		return doUpdate(update, context, validated_input)
+def addFunds(user_id, user_data, amount):
+	user_data['balance'] = database.updateBalance(user_id, int(amount))
+	return True
 
+
+def withdrawFunds(user_id, user_data, amount):
+	current_funds = database.getUser(user_id)['balance']
+	amount = int(amount)
+	if current_funds < amount:
+		return False
+	user_data['balance'] = database.updateBalance(user_id, -amount)
+	return True
+
+
+def setPubgID(user_id, user_data, pubg_id):
+	database.updatePubgID(user_id, int(pubg_id))
+	user_data['pubg_id'] = pubg_id
+	return True
+
+
+def setPubgUsername(user_id, user_data, pubg_username):
+	database.updatePubgUsername(user_id, pubg_username)
+	user_data['pubg_username'] = pubg_username
+	return True
+
+
+update_profile_callbacks = {
+	'add_funds'			: addFunds,
+	'withdraw_funds'	: withdrawFunds,
+	'set_pubg_id'		: setPubgID,
+	'set_pubg_username'	: setPubgUsername
+}
+
+
+def updateProfile(update, context, menu):
+	validated_input = context.chat_data.pop('validated_input', None)
 	what_to_update = context.chat_data['history'][-1]
 	current_menu = profile_menu['next'][what_to_update]
-	user_input = context.chat_data.pop('user_input', None)
 
+	if validated_input:
+		if update_profile_callbacks[what_to_update](
+			int(update.effective_user.id), context.user_data, validated_input):
+			answer = current_menu['input']['msg_success']
+		else:
+			answer = current_menu['input']['msg_fail']
+		update.callback_query.answer(answer, show_alert=True)
+		context.chat_data['history'].pop()
+		return main(update, context, menu)
+
+	user_input = context.chat_data.pop('user_input', None)
 	confirm_button = []
 	if not user_input:
 		message = current_menu['msg']
-	elif re.match(r'^[0-9]+$', user_input):
+	elif (what_to_update.endswith('username') and len(user_input) <= 14)\
+		or re.match(r'^[0-9]{5,10}$', user_input):
 		message = current_menu['input']['msg_valid'].format(user_input)
 		confirm_button = [buttons.createButton(
 			texts.confirm, f'confirm_{user_input}')]
 	else:
 		message = current_menu['input']['msg_error']
 	return (message, [confirm_button] + current_menu['buttons'])
-
-
-def addFunds(user_id, user_data, new_value):
-	user_data['balance'] = database.updateBalance(user_id, new_value)
-	return texts.funds_added
-
-
-def withdrawFunds(user_id, user_data, new_value):
-	current_funds = database.getUser(user_id)['balance']
-	if current_funds < new_value:
-		return texts.insufficient_funds
-	user_data['balance'] = database.updateBalance(user_id, -new_value)
-	return texts.funds_withdrawn
-
-
-def updatePubgID(user_id, user_data, new_value):
-	# if not check_id(new_id):
-	# 	return texts.pubg_id_not_found
-	database.updatePubgID(user_id, new_value)
-	user_data['pubg_id'] = new_value
-	return texts.pubg_id_is_set
-
-
-update_profile_callbacks = {
-	'add_funds'		: addFunds,
-	'withdraw_funds': withdrawFunds,
-	'set_pubg_id'	: updatePubgID,
-}
-
-
-def doUpdate(update, context, validated_input):
-	what_to_update = context.chat_data['history'].pop()
-	result = update_profile_callbacks[what_to_update](
-		int(update.effective_user.id),
-		context.user_data,
-		int(validated_input)
-	)
-	update.callback_query.answer(result, show_alert=True)
-	return profileMain(update, context)
-
-
-callbacks = {
-	r'^profile$'									: profileMain,
-	r'^balance_history$'							: balanceHistory,
-	r'^(add_funds)|(withdraw_funds)|(set_pubg_id)$'	: updateProfile,
-}

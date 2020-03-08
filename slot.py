@@ -18,6 +18,7 @@ class Slot:
 		self.players = set()
 		self.pubg_id = None
 		self.slot_id = Slot.slots_count
+		self.is_finished = False
 		Slot.slots_count += 1
 
 		logger.info(f"New slot ({self.time_string}) has been created")
@@ -36,29 +37,24 @@ class Slot:
 		return int(self.settings['bet'])
 
 	@property
-	def full(self):
+	def is_full(self):
 		return len(self.players) >= 100
 
 	@property
-	def ready(self):
+	def is_ready(self):
 		return len(self.players) >= 70
 
 	@property
-	def isSet(self):
+	def is_set(self):
 		return all(self.settings.values())
-
-	@property
-	def done(self):
-		# pubg request
-		pass
 
 	def createButton(self, leave=False):
 		if leave:
 			button_text = f"{self.time_string} - {texts.leave_match}"
 		elif not self.players:
 			button_text = f"{self.time_string} - {texts.free_slot}"
-		elif self.full:
-			button_text = f"{self.time_string} - {texts.full_slot}"
+		elif self.is_full:
+			button_text = f"{self.time_string} - {texts.is_full_slot}"
 		else:
 			button_text = str(self)
 		return buttons.createButton(button_text, f'slot_{self.slot_id}')

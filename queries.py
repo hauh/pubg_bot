@@ -13,11 +13,12 @@ tables = (
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS users (
-			id			INT PRIMARY KEY,
-			pubg_id		INT,
-			username	VARCHAR(32),
-			balance		INT	DEFAULT 0,
-			admin		BOOL DEFAULT false
+			id				INT PRIMARY KEY,
+			username		VARCHAR(32),
+			pubg_id			BIGINT,
+			pubg_username	VARCHAR(14),
+			balance			INT	DEFAULT 0,
+			admin			BOOL DEFAULT false
 		)
 	""",
 	"""
@@ -47,11 +48,6 @@ get_user =\
 			(%(username)s IS NULL OR username = %(username)s)
 	"""
 
-get_user_by_username =\
-	"""
-		SELECT * FROM users WHERE username = %s
-	"""
-
 save_user =\
 	"""
 		INSERT INTO users (id, username) VALUES (%s, %s)
@@ -72,6 +68,11 @@ update_balance = (
 update_pubg_id =\
 	"""
 		UPDATE users SET pubg_id = %s WHERE id = %s
+	"""
+
+update_pubg_username =\
+	"""
+		UPDATE users SET pubg_username = %s WHERE id = %s
 	"""
 
 get_balance_history =\

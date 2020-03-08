@@ -9,17 +9,18 @@ import database
 import texts
 import buttons
 import menu
+import jobs
+
+import admin
 import matches
 import profile
-import admin
-import jobs
 
 ########################
 
 logger = getLogger('bot')
 
 
-def mainMenu(update, context):
+def mainMenu(update, context, menu):
 	user_id = int(update.effective_user.id)
 	user = database.getUser(user_id)
 	if not user or user['username'] != update.effective_user.username:
@@ -27,7 +28,7 @@ def mainMenu(update, context):
 		user = database.getUser(user_id)
 	context.user_data.update(user)
 	admin_button = 0 if user['admin'] or user_id in config.admin_id else 1
-	return (texts.menu['msg'], texts.menu['buttons'][admin_button:])
+	return (menu['msg'], menu['buttons'][admin_button:])
 
 
 def error(update, context):
@@ -43,6 +44,31 @@ def error(update, context):
 			update.effective_chat.send_message(texts.error))
 
 
+def updateMenuWithCallbacks():
+	texts.menu['callback'] = mainMenu
+
+	admin_menu = texts.menu['next']['admin']
+	admin_menu['callback'] = admin.main
+	admin_menu['next']['manage_admins']['next']['add_admin']['callback'] =\
+		admin.addAdmin
+	admin_menu['next']['manage_admins']['next']['del_admin']['callback'] =\
+		admin.delAdmin
+
+	matches_menu = texts.menu['next']['matches']
+	matches_menu['callback'] = matches.main
+	matches_menu['next']['slot_']['callback'] = matches.pickSlot
+	for setting in matches_menu['next']['slot_']['next'].keys():
+		setting_menu = matches_menu['next']['slot_']['next'][setting]['next']
+		for setting_choice in setting_menu.values():
+			setting_choice['callback'] = matches.getSlotSetting
+
+	profile_menu = texts.menu['next']['profile']
+	profile_menu['callback'] = profile.main
+	profile_menu['next']['balance_history']['callback'] = profile.balanceHistory
+	for update_option in profile_menu['next'].values():
+		update_option['callback'] = profile.updateProfile
+
+
 def main():
 	try:
 		database.prepareDB()
@@ -51,6 +77,7 @@ def main():
 		sys.exit(-1)
 
 	buttons.updateMenuWithButtons()
+	updateMenuWithCallbacks()
 
 	updater = Updater(
 		token=config.bot_token,
@@ -60,15 +87,7 @@ def main():
 
 	jobs.scheduleJobs(updater.job_queue)
 
-	updater.dispatcher.add_handler(menu.MenuHandler(
-		texts.menu,
-		[
-			{r'^main$': mainMenu},
-			admin.callbacks,
-			matches.callbacks,
-			profile.callbacks,
-		])
-	)
+	updater.dispatcher.add_handler(menu.MenuHandler(texts.menu))
 	updater.dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")

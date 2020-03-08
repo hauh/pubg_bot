@@ -48,7 +48,7 @@ def warnAdmins(context, slot_name):
 
 def manageSlot(slot, context):
 	logger.info(f"Slot {slot.slot_id} expired, players: {len(slot.players)}")
-	ready = slot.ready
+	ready = slot.is_ready
 	if ready:
 		warnAdmins(context, str(slot))
 		context.job_queue.run_once(
@@ -68,7 +68,7 @@ def checkSlots(context):
 	now = datetime.now()
 	slots = context.bot_data.setdefault('slots', [])
 	for index, slot in enumerate(slots):
-		if slot.full or slot.time <= now + timedelta(minutes=20):
+		if slot.is_full or slot.time <= now + timedelta(minutes=20):
 			ready_slot = slots.pop(index)
 			if ready_slot.time + timedelta(hours=1) < now:
 				slots.insert(index, Slot(ready_slot.time))
@@ -85,7 +85,7 @@ def checkSlots(context):
 def checkGames(context):
 	running_games = context.bot_data.get('running_games', [])
 	for game in running_games:
-		if game.done:
+		if game.is_finished:
 			for player_id in game.players:
 				player_data = context.dispatcher.user_data.get(player_id)
 				player_data.pop('game_message').delete()
