@@ -5,23 +5,30 @@ from telegram import InlineKeyboardButton
 import texts
 import config
 import database
-import main_menu
 
 #######################
 
 logger = getLogger(__name__)
 
 
+def withAdminRight(admin_func):
+	def checkRights(update, context, menu):
+		if not context.user_data.get('admin')\
+			and update.effective_user.id not in config.admin_id:
+			return (None, None)
+		return admin_func(update, context, menu)
+	return checkRights
+
+
+@withAdminRight
 def mainAdmin(update, context, menu):
-	if not context.user_data['admin']\
-		or update.effective_user.id not in config.admin_id:
-		return main_menu.start(update, context)
 	return (menu['msg'], menu['buttons'])
 
 
-def switchAdmin(update, context, admin_id, switch):
-	if database.updateAdmin(admin_id, switch):
-		answer = texts.admin_added if switch is True else texts.admin_removed
+def switchAdmin(update, context, admin_id, new_state):
+	if database.updateAdmin(admin_id, new_state):
+		answer = texts.admin_added if new_state is True else texts.admin_removed
+		context.dispatcher.user_data[admin_id]['admin'] = new_state
 	else:
 		answer = texts.admin_update_failed
 	update.callback_query.answer(answer, show_alert=True)
@@ -29,6 +36,7 @@ def switchAdmin(update, context, admin_id, switch):
 	return mainAdmin(update, context, texts.menu['next']['admin'])
 
 
+@withAdminRight
 def addAdmin(update, context, menu):
 	validated_input = context.user_data.pop('validated_input', None)
 	if validated_input:
@@ -49,6 +57,7 @@ def addAdmin(update, context, menu):
 	return (message, [confirm_button] + menu['buttons'])
 
 
+@withAdminRight
 def delAdmin(update, context, menu):
 	validated_input = context.user_data.pop('validated_input', None)
 	if validated_input:

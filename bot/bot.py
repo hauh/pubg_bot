@@ -10,7 +10,6 @@ import texts
 import jobs
 from menu_handler import MenuHandler
 
-import main_menu
 import admin
 import matches
 import profile
@@ -18,6 +17,17 @@ import profile
 ########################
 
 logger = getLogger('bot')
+
+
+def start(update, context, menu):
+	user_id = int(update.effective_user.id)
+	user = database.getUser(user_id)
+	if not user or user['username'] != update.effective_user.username:
+		database.saveUser(user_id, update.effective_user.username)
+		user = database.getUser(user_id)
+	context.user_data.update(user)
+	admin_button = 0 if user['admin'] or user_id in config.admin_id else 1
+	return (menu['msg'], menu['buttons'][admin_button:])
 
 
 def error(update, context):
@@ -55,7 +65,7 @@ def updateMenuWithButtons():
 
 
 def updateMenuWithCallbacks():
-	texts.menu['callback'] = main_menu.start
+	texts.menu['callback'] = start
 
 	admin_menu = texts.menu['next']['admin']
 	admin_menu['callback'] = admin.mainAdmin
@@ -74,8 +84,11 @@ def updateMenuWithCallbacks():
 
 	profile_menu = texts.menu['next']['profile']
 	profile_menu['callback'] = profile.mainProfile
-	for update_option in profile_menu['next'].values():
-		update_option['callback'] = profile.updateProfile
+	profile_menu['next']['set_pubg_id']['callback'] = profile.setPubgID
+	profile_menu['next']['set_pubg_username']['callback'] =\
+		profile.setPubgUsername
+	profile_menu['next']['add_funds']['callback'] = profile.addFunds
+	profile_menu['next']['withdraw_funds']['callback'] = profile.withdrawFunds
 	profile_menu['next']['balance_history']['callback'] = profile.balanceHistory
 
 

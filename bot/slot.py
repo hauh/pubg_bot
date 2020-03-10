@@ -18,9 +18,10 @@ class Slot:
 		self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 		self.players = set()
 		self.pubg_id = None
-		self.slot_id = Slot.slots_count
 		self.is_finished = False
+
 		Slot.slots_count += 1
+		self.slot_id = Slot.slots_count
 
 		logger.info(f"New slot ({self.time_string}) has been created")
 
@@ -49,7 +50,7 @@ class Slot:
 	def is_set(self):
 		return all(self.settings.values())
 
-	def createButton(self, leave=False):
+	def create_button(self, leave=False):
 		if leave:
 			text = f"{self.time_string} - {texts.leave_match}"
 		elif not self.players:

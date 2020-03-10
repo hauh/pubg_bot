@@ -24,9 +24,11 @@ class MenuHandler(Handler):
 
 	def handle_update(self, update, dispatcher, check_result, context):
 		history = context.user_data.setdefault('history', [])
-		old_messages = context.user_data.setdefault('old_messages', [])
+		if not history:
+			next_state = 'main'
+		else:
+			next_state = self._getNextState(update, context, history)
 
-		next_state = self._getNextState(update, context, history)
 		if next_state in history:
 			del history[history.index(next_state) + 1:]
 		else:
@@ -41,9 +43,11 @@ class MenuHandler(Handler):
 			text, buttons = menu['msg'], menu['buttons']
 
 		context.user_data.pop('user_input', None)
-		self._cleanChat(old_messages)
-		messages = self._splitText(text)
-		self._sendMessages(update, context, messages, buttons, old_messages)
+		if text:
+			old_messages = context.user_data.setdefault('old_messages', [])
+			self._cleanChat(old_messages)
+			messages = self._splitText(text)
+			self._sendMessages(update, context, messages, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
 		if update.callback_query:
