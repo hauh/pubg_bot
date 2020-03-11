@@ -3,6 +3,7 @@ from logging import getLogger
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
+import config
 import texts
 import database
 from slot import Slot
@@ -12,10 +13,16 @@ from slot import Slot
 logger = getLogger(__name__)
 
 
+def delGameMessage(context):
+	player_id = context.job.context
+	player_data = context.dispatcher.user_data.get(player_id)
+	player_data.pop('game_message').delete()
+
+
 def startGame(context):
 	slot = context.job.context
 	ready = True if slot.pubg_id else False
-	if ready:
+	if not ready:
 		logger.warning(
 			f"Game {slot.slot_id} - {str(slot)} canceled "
 			"because no PUBG ID was provided!"
@@ -30,25 +37,21 @@ def startGame(context):
 		player_data['game_message'].delete()
 		player_data['game_message'] = context.bot.send_message(player_id, msg)
 		if not ready:
+			context.job_queue.run_once(
+				delGameMessage, slot.time + timedelta(hours=12), context=player_id)
 			player_data['balance'] = database.updateBalance(player_id, slot.bet)
-
-
-def warnAdmins(context, slot_name):
-	admins = database.getAdmins()
-	for admin in admins:
-		context.bot.send_message(
-			admin['id'],
-			texts.pubg_id_is_needed.format(slot_name),
-			reply_markup=InlineKeyboardMarkup(
-				[InlineKeyboardButton(texts.goto_admin, callback_data='manage_matches')])
-		)
 
 
 def manageSlot(slot, context):
 	logger.info(f"Slot {slot.slot_id} expired, players: {len(slot.players)}")
 	ready = slot.is_ready
 	if ready:
-		warnAdmins(context, str(slot))
+		context.bot.send_message(
+			config.admin_group_id, texts.pubg_id_is_needed.format(str(slot)),
+			reply_markup=InlineKeyboardMarkup(
+				[[InlineKeyboardButton(texts.goto_admin, callback_data='manage_matches')]])
+		)
+		context.bot_data.setdefault('pending_games', set()).add(slot)
 		context.job_queue.run_once(
 			startGame, slot.time - timedelta(minutes=5), context=slot)
 	for player_id in slot.players:
@@ -56,8 +59,10 @@ def manageSlot(slot, context):
 		if not ready:
 			player_data['balance'] = database.updateBalance(player_id, slot.bet)
 			msg = texts.match_didnt_happen.format(str(slot))
+			context.job_queue.run_once(
+				delGameMessage, slot.time + timedelta(hours=12), context=player_id)
 		else:
-			msg = texts.match_starts_soon.format(str(slot))
+			msg = texts.match_is_starting_soon.format(str(slot))
 		player_data['game_message'] = context.bot.send_message(player_id, msg)
 		player_data['picked_slots'].discard(slot)
 

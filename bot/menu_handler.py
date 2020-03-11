@@ -17,6 +17,15 @@ class MenuHandler(Handler):
 		self.menu = menu
 		super(MenuHandler, self).__init__(callback=None)
 
+	@staticmethod
+	def cleanChat(old_messages):
+		for message in old_messages:
+			try:
+				message.delete()
+			except Exception:
+				pass
+		old_messages.clear()
+
 	def check_update(self, update):
 		if isinstance(update, Update) and update.effective_chat.type == 'private':
 			return True
@@ -45,7 +54,7 @@ class MenuHandler(Handler):
 		context.user_data.pop('user_input', None)
 		if text:
 			old_messages = context.user_data.setdefault('old_messages', [])
-			self._cleanChat(old_messages)
+			MenuHandler.cleanChat(old_messages)
 			messages = self._splitText(text)
 			self._sendMessages(update, context, messages, buttons, old_messages)
 
@@ -89,14 +98,6 @@ class MenuHandler(Handler):
 			i = max_lines_index + 1
 		messages.append(text[i:])
 		return messages
-
-	def _cleanChat(self, old_messages):
-		for message in old_messages:
-			try:
-				message.delete()
-			except Exception:
-				pass
-		old_messages.clear()
 
 	def _sendMessages(self, update, context, messages, buttons, old_messages):
 		for message in messages:

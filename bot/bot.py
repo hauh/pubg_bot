@@ -1,8 +1,8 @@
 import sys
 from logging import getLogger
 
-from telegram import ParseMode, InlineKeyboardButton
-from telegram.ext import Defaults, Updater
+from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Defaults, Updater, Filters, CallbackQueryHandler
 
 import config
 import database
@@ -36,7 +36,7 @@ def error(update, context):
 		type(context.error).__name__,
 		context.error
 	))
-	if update.callback_query:
+	if update.callback_query and update.callback_query.id != 0:
 		update.callback_query.answer(texts.error, show_alert=True)
 	else:
 		context.user_data.setdefault('old_messages', []).append(
@@ -73,6 +73,11 @@ def updateMenuWithCallbacks():
 		admin.addAdmin
 	admin_menu['next']['manage_admins']['next']['del_admin']['callback'] =\
 		admin.delAdmin
+	admin_menu['next']['manage_matches']['callback'] = admin.manageMatches
+	admin_menu['next']['manage_matches']['next']['set_game_id_']['callback'] =\
+		admin.setGameID
+	admin_menu['next']['manage_matches']['next']['set_winners_']['callback'] =\
+		admin.setGameWinners
 
 	matches_menu = texts.menu['next']['matches']
 	matches_menu['callback'] = matches.mainMatches
@@ -90,6 +95,18 @@ def updateMenuWithCallbacks():
 	profile_menu['next']['add_funds']['callback'] = profile.addFunds
 	profile_menu['next']['withdraw_funds']['callback'] = profile.withdrawFunds
 	profile_menu['next']['balance_history']['callback'] = profile.balanceHistory
+
+
+def gotoAdmin(update, context):
+	text, buttons = admin.manageMatches(
+		update, context, texts.menu['next']['admin']['next']['manage_matches'])
+	if text:
+		old_messages = context.user_data.setdefault('old_messages', [])
+		MenuHandler.cleanChat(old_messages)
+		old_messages.append(
+			update.effective_user.send_message(
+				text, reply_markup=InlineKeyboardMarkup(buttons))
+		)
 
 
 def main():
@@ -111,6 +128,8 @@ def main():
 	jobs.scheduleJobs(updater.job_queue)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
+	updater.dispatcher.add_handler(
+		CallbackQueryHandler(gotoAdmin, pattern='manage_matches'))
 	updater.dispatcher.add_error_handler(error)
 
 	logger.info("Bot started")

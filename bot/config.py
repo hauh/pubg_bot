@@ -4,6 +4,7 @@ from os import getenv
 # bot
 bot_token = getenv('TG_TOKEN')
 admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
+admin_group_id = getenv('ADMIN_GROUP_ID')
 battle_chat = getenv('BATTLE_CHAT_LINK')
 
 # logger
