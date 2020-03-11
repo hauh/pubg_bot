@@ -70,7 +70,8 @@ def updateBalance(cursor, user_id, amount):
 	for query in queries.update_balance:
 		cursor.execute(query, (amount, user_id,))
 	cursor.execute(queries.get_user, {'id': user_id, 'username': None})
-	logger.info("Balance of {} has been changed for {}".format(user_id, amount))
+	logger.info(
+		"Balance of user {} has been changed for {}".format(user_id, amount))
 	return cursor.fetchone()['balance']
 
 

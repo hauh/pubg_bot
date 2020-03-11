@@ -16,6 +16,7 @@ def mainMatches(update, context, menu):
 		or not context.user_data.get('pubg_username'):
 		update.callback_query.answer(texts.pubg_is_not_set)
 		return (None, None)
+
 	picked = context.user_data.setdefault('picked_slots', set())
 	all_slots = context.bot_data.get('slots')
 	for expired_slot in picked - set(all_slots):
@@ -48,7 +49,7 @@ def slotMenu(update, context, menu):
 		answer = leaveSlot(update.effective_user.id, context.user_data, slot)
 	elif len(context.user_data['picked_slots']) < 3:
 		if not slot.is_set:
-			return setupSlot(update, context, menu, slot)
+			return setupSlot(update, context, menu)
 		answer = pickSlot(update.effective_user.id, context.user_data, slot)
 	else:
 		answer = texts.maximum_matches
@@ -68,8 +69,8 @@ def findSlot(context):
 
 def leaveSlot(user_id, user_data, slot):
 	user_data['picked_slots'].remove(slot)
-	slot.leave(user_id)
 	user_data['balance'] = database.updateBalance(user_id, slot.bet)
+	slot.leave(user_id)
 	return texts.left_from_match
 
 
@@ -79,16 +80,19 @@ def pickSlot(user_id, user_data, slot):
 	if slot.is_full:
 		return texts.is_full_slot
 	user_data['picked_slots'].add(slot)
-	slot.join(user_id)
 	user_data['balance'] = database.updateBalance(user_id, -slot.bet)
+	slot.join(user_id)
 	return texts.match_is_chosen
 
 
-def setupSlot(update, context, menu, slot):
+def setupSlot(update, context, menu):
 	settings = context.user_data.setdefault(
-		'slot_setting', dict.fromkeys(slot_settings))
-	confirm_button = [InlineKeyboardButton(
-		texts.confirm, callback_data='confirm_slot_setup')]
+		'slot_settings', dict.fromkeys(slot_settings))
+	if all(settings.values()):
+		confirm_button = [InlineKeyboardButton(
+			texts.confirm, callback_data='confirm_slot_setup')]
+	else:
+		confirm_button = []
 	return (
 		menu['msg'].format(
 			balance=context.user_data['balance'],
@@ -98,7 +102,7 @@ def setupSlot(update, context, menu, slot):
 						for setting, chosen_value in settings.items()
 			}
 		),
-		([confirm_button] if all(settings.values()) else []) + menu['buttons']
+		[confirm_button] + menu['buttons']
 	)
 
 
@@ -106,6 +110,5 @@ def getSlotSetting(update, context, menu):
 	setting = context.user_data['history'][-2]
 	context.user_data['slot_settings'][setting] = update.callback_query.data
 	del context.user_data['history'][-2:]
-	update.callback_query.data = context.user_data['history'][-1]
-	context.dispatcher.process_update(update)
-	return (None, None)
+	return setupSlot(
+		update, context, texts.menu['next']['matches']['next']['slot_'])
