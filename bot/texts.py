@@ -221,7 +221,24 @@ admin = {
 					}
 				},
 				'set_winners_': {
-					'msg': "Введите победителей в матче [{game}] - PUBG ID: {pubg_id}",
+					'msg': (
+						"Введите победителей в матче [{game}] - PUBG ID: {pubg_id}\n"
+						"{winners}"
+					),
+					'input': {
+						'msg_error': "Матч не найден",
+						'msg_success': "Призы скоро будут распределены"
+					},
+					'next': {
+						'place_': {
+							'btn_template': "{place}: {username}",
+							'msg': "Введите PUBG ник игрока, занявшего {} место",
+							'input': {
+								'msg_error': "Матч не найден",
+								'msg_valid': "Игрок выбран"
+							}
+						},
+					}
 				},
 			}
 		},
@@ -259,7 +276,7 @@ admin_removed = "Администартор удалён!"
 admin_update_failed = "Не получилось"
 pubg_id_is_needed = "Матч [{}] начнётся через 20 минут! Введите PUBG ID матча."
 goto_admin = "Перейти в админку"
-set_slot_winners = "Ввести результаты матча"
+set_game_winners = "Ввести результаты"
 set_pubg_id = "Установить PUBG ID"
 
 # misc

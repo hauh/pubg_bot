@@ -83,6 +83,7 @@ def checkSlots(context):
 	while len(slots) < 24:
 		next_slot_time += timedelta(minutes=30)
 		slots.append(Slot(next_slot_time))
+	context.bot_data['running_games'] = set(slots)
 
 
 def checkGames(context):

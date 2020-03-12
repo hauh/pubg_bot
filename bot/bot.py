@@ -69,15 +69,15 @@ def updateMenuWithCallbacks():
 
 	admin_menu = texts.menu['next']['admin']
 	admin_menu['callback'] = admin.mainAdmin
-	admin_menu['next']['manage_admins']['next']['add_admin']['callback'] =\
-		admin.addAdmin
-	admin_menu['next']['manage_admins']['next']['del_admin']['callback'] =\
-		admin.delAdmin
-	admin_menu['next']['manage_matches']['callback'] = admin.manageMatches
-	admin_menu['next']['manage_matches']['next']['set_game_id_']['callback'] =\
-		admin.setGameID
-	admin_menu['next']['manage_matches']['next']['set_winners_']['callback'] =\
-		admin.setGameWinners
+	manage_admins = admin_menu['next']['manage_admins']
+	manage_admins['next']['add_admin']['callback'] = admin.addAdmin
+	manage_admins['next']['del_admin']['callback'] = admin.delAdmin
+	manage_matches = admin_menu['next']['manage_matches']
+	manage_matches['callback'] = admin.manageMatches
+	manage_matches['next']['set_game_id_']['callback'] = admin.setGameID
+	manage_matches['next']['set_winners_']['callback'] = admin.setWinners
+	manage_matches['next']['set_winners_']['next']['place_']['callback'] =\
+		admin.setEachWinner
 
 	matches_menu = texts.menu['next']['matches']
 	matches_menu['callback'] = matches.mainMatches

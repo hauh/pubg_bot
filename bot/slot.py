@@ -3,6 +3,7 @@ from logging import getLogger
 from telegram import InlineKeyboardButton
 
 import texts
+import database
 
 ##############################
 
@@ -17,6 +18,7 @@ class Slot:
 		self.time_string = time.strftime("%H:%M")
 		self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 		self.players = set()
+		self.winners = dict.fromkeys(range(1, 11))
 		self.pubg_id = None
 		self.is_finished = False
 
@@ -71,4 +73,8 @@ class Slot:
 
 	def reward(self):
 		winners = set()  # of tuples (winner_id, place, prize)
+		total_sum = int(self.settings['bet']) * len(self.players)
+		for place, username in self.winners:
+			user = database.getUser(pubg_username=username)
+			NotImplemented
 		return winners
