@@ -74,6 +74,7 @@ def updateMenuWithCallbacks():
 	manage_admins['next']['del_admin']['callback'] = admin.delAdmin
 	manage_matches = admin_menu['next']['manage_matches']
 	manage_matches['callback'] = admin.manageMatches
+	manage_matches['next']['switch_game_type_']['callback'] = admin.switchGameType
 	manage_matches['next']['set_game_id_']['callback'] = admin.setGameID
 	manage_matches['next']['set_winners_']['callback'] = admin.setWinners
 	manage_matches['next']['set_winners_']['next']['place_']['callback'] =\
@@ -100,6 +101,7 @@ def updateMenuWithCallbacks():
 def gotoAdmin(update, context):
 	text, buttons = admin.manageMatches(
 		update, context, texts.menu['next']['admin']['next']['manage_matches'])
+	context.user_data['history'] = ['manage_matches']
 	if text:
 		old_messages = context.user_data.setdefault('old_messages', [])
 		MenuHandler.cleanChat(old_messages)
@@ -125,7 +127,7 @@ def main():
 		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
 	)
 
-	jobs.scheduleJobs(updater.job_queue)
+	updater.job_queue.run_repeating(jobs.checkSlots, 60, first=0)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_handler(

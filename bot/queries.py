@@ -45,7 +45,9 @@ get_user =\
 	"""
 		SELECT * FROM users WHERE
 			(%(id)s IS NULL OR id = %(id)s) AND
-			(%(username)s IS NULL OR username = %(username)s)
+			(%(username)s IS NULL OR username = %(username)s) AND
+			(%(pubg_username)s IS NULL OR pubg_username = %(pubg_username)s) AND
+			(%(pubg_id)s IS NULL OR pubg_id = %(pubg_id)s)
 	"""
 
 save_user =\

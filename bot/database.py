@@ -54,8 +54,15 @@ def getMatches(cursor, filters):
 
 
 @withConnection
-def getUser(cursor, user_id=None, username=None):
-	cursor.execute(queries.get_user, {'id': user_id, 'username': username})
+def getUser(cursor, user_id=None, username=None,
+			pubg_username=None, pubg_id=None):
+	cursor.execute(
+		queries.get_user,
+		{
+			'id': user_id, 'username': username,
+			'pubg_username': pubg_username, 'pubg_id': pubg_id
+		}
+	)
 	return cursor.fetchone()
 
 
@@ -69,7 +76,10 @@ def saveUser(cursor, user_id, username):
 def updateBalance(cursor, user_id, amount):
 	for query in queries.update_balance:
 		cursor.execute(query, (amount, user_id,))
-	cursor.execute(queries.get_user, {'id': user_id, 'username': None})
+	cursor.execute(
+		queries.get_user,
+		{'id': user_id, 'username': None, 'pubg_username': None, 'pubg_id': None}
+	)
 	logger.info(
 		"Balance of user {} has been changed for {}".format(user_id, amount))
 	return cursor.fetchone()['balance']

@@ -227,19 +227,25 @@ admin = {
 					),
 					'input': {
 						'msg_error': "Матч не найден",
-						'msg_success': "Призы скоро будут распределены"
+						'msg_success': "Призы распределены"
 					},
 					'next': {
 						'place_': {
 							'btn_template': "{place}: {username}",
-							'msg': "Введите PUBG ник игрока, занявшего {} место",
+							'msg': "Введите PUBG ник или PUBG ID игрока, занявшего {} место",
 							'input': {
 								'msg_error': "Матч не найден",
-								'msg_valid': "Игрок выбран"
+								'msg_valid': "Игрок выбран",
+								'msg_fail': (
+									"Игрок с таким ником/ID не найден. "
+									"Попробуйте заново или вернитесь, чтобы пропустить слот"
+								)
 							}
 						},
-					}
+					},
 				},
+				'switch_game_type_': {
+				}
 			}
 		},
 		'manage_admins': {
@@ -276,8 +282,16 @@ admin_removed = "Администартор удалён!"
 admin_update_failed = "Не получилось"
 pubg_id_is_needed = "Матч [{}] начнётся через 20 минут! Введите PUBG ID матча."
 goto_admin = "Перейти в админку"
-set_game_winners = "Ввести результаты"
 set_pubg_id = "Установить PUBG ID"
+set_game_winners = "Ввести результаты"
+switch_game_type = "Переключить тип"
+game_type_switched = "Тип матча изменён на {}"
+match_has_started = "Матч [{}], PUBG ID: {} начался!"
+match_has_ended = (
+	"Матч [{game}], PUBG ID: {pubg_id} завершён.\n"
+	"Всего ставок: {total_bets}, призовых выплачено: {prizes}"
+)
+user_not_found = "Не найден"
 
 # misc
 error = "Ошибка. Попробуйте заново"

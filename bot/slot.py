@@ -2,6 +2,7 @@ from logging import getLogger
 
 from telegram import InlineKeyboardButton
 
+import config
 import texts
 import database
 
@@ -16,7 +17,8 @@ class Slot:
 	def __init__(self, time):
 		self.time = time
 		self.time_string = time.strftime("%H:%M")
-		self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
+		self.settings = dict.fromkeys(['mode', 'view', 'bet', 'type'], None)
+		self.settings['type'] = 'survival'
 		self.players = set()
 		self.winners = dict.fromkeys(range(1, 11))
 		self.pubg_id = None
@@ -28,12 +30,13 @@ class Slot:
 		logger.info(f"New slot ({self.time_string}) has been created")
 
 	def __str__(self):
-		return "{time} - {players} - {mode} - {view} - {bet}".format(
+		return "{time} - {players} - {mode} - {view} - {bet} - {type}".format(
 			time=self.time_string,
 			players=len(self.players),
 			mode=self.settings['mode'],
 			view=self.settings['view'],
-			bet=self.settings['bet']
+			bet=self.settings['bet'],
+			type=self.settings['type']
 		)
 
 	@property
@@ -52,13 +55,27 @@ class Slot:
 	def is_set(self):
 		return all(self.settings.values())
 
+	@property
+	def prize_fund(self):
+		return int(self.settings['bet']) * len(self.players)
+
+	@property
+	def game_type(self):
+		return self.settings['type']
+
+	def switch_game_type(self):
+		if self.settings['type'] == 'survival':
+			self.settings['type'] = 'kills'
+		else:
+			self.settings['type'] = 'survival'
+
 	def create_button(self, leave=False):
 		if leave:
 			text = f"{self.time_string} - {texts.leave_match}"
 		elif not self.players:
 			text = f"{self.time_string} - {texts.free_slot}"
 		elif self.is_full:
-			text = f"{self.time_string} - {texts.is_full_slot}"
+			text = f"{self.time_string} - {texts.full_slot}"
 		else:
 			text = str(self)
 		return [InlineKeyboardButton(text, callback_data=f'slot_{self.slot_id}')]
@@ -72,9 +89,15 @@ class Slot:
 			self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
 
 	def reward(self):
-		winners = set()  # of tuples (winner_id, place, prize)
-		total_sum = int(self.settings['bet']) * len(self.players)
-		for place, username in self.winners:
-			user = database.getUser(pubg_username=username)
-			NotImplemented
-		return winners
+		winners = set()
+		prize_structure = config.prize_structure[self.settings['type']]
+		prize_fund = self.prize_fund
+		total_payout = 0
+		for place, username in self.winners.items():
+			if username != texts.user_not_found:
+				percent = prize_structure[place]
+				prize = round(prize_fund / 100.0 * percent)
+				total_payout += prize
+				user = database.getUser(pubg_username=username)
+				winners.add((user['id'], place, prize))
+		return winners, total_payout
