@@ -17,6 +17,7 @@ logging.basicConfig(
 # prizes
 prize_structure = {
 	'survival': {
+		'kill': 0,
 		1: 10.0,
 		2: 9.0,
 		3: 8.0,
@@ -29,6 +30,7 @@ prize_structure = {
 		10: 6.0,
 	},
 	'kills': {
+		'kill': 50.0,
 		1: 5.0,
 		2: 4.5,
 		3: 4.0,

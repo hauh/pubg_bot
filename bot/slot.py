@@ -16,22 +16,20 @@ class Slot:
 
 	def __init__(self, time):
 		self.time = time
-		self.time_string = time.strftime("%H:%M")
 		self.settings = dict.fromkeys(['mode', 'view', 'bet', 'type'], None)
 		self.settings['type'] = 'survival'
 		self.players = set()
-		self.winners = dict.fromkeys(range(1, 11))
+		self.winners = dict.fromkeys(range(1, 3))
 		self.pubg_id = None
-		self.is_finished = False
 
 		Slot.slots_count += 1
 		self.slot_id = Slot.slots_count
 
-		logger.info(f"New slot ({self.time_string}) has been created")
+		logger.info(f"New slot ({str(self)}) has been created")
 
 	def __str__(self):
 		return "{time} - {players} - {mode} - {view} - {bet} - {type}".format(
-			time=self.time_string,
+			time=self.time.strftime("%H:%M"),
 			players=len(self.players),
 			mode=self.settings['mode'],
 			view=self.settings['view'],
@@ -71,11 +69,11 @@ class Slot:
 
 	def create_button(self, leave=False):
 		if leave:
-			text = f"{self.time_string} - {texts.leave_match}"
+			text = f"{self.time.strftime('%H:%M')} - {texts.leave_match}"
 		elif not self.players:
-			text = f"{self.time_string} - {texts.free_slot}"
+			text = f"{self.time.strftime('%H:%M')} - {texts.free_slot}"
 		elif self.is_full:
-			text = f"{self.time_string} - {texts.full_slot}"
+			text = f"{self.time.strftime('%H:%M')} - {texts.full_slot}"
 		else:
 			text = str(self)
 		return [InlineKeyboardButton(text, callback_data=f'slot_{self.slot_id}')]
@@ -90,13 +88,14 @@ class Slot:
 
 	def reward(self):
 		winners = set()
-		prize_structure = config.prize_structure[self.settings['type']]
+		prize_structure = config.prize_structure[self.game_type]
 		prize_fund = self.prize_fund
 		total_payout = 0
-		for place, username in self.winners.items():
+		for place, winner in self.winners.items():
+			username, kills = winner
 			if username != texts.user_not_found:
 				percent = prize_structure[place]
-				prize = round(prize_fund / 100.0 * percent)
+				prize = round(prize_fund / 100.0 * percent) + kills * prize_structure['kill']
 				total_payout += prize
 				user = database.getUser(pubg_username=username)
 				winners.add((user['id'], place, prize))

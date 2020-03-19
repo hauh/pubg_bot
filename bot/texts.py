@@ -195,10 +195,7 @@ profile = {
 }
 menu['next']['profile'].update(profile)
 
-funds_added = "Баланс пополнен"
 insufficient_funds = "Недостаточно средств"
-funds_withdrawn = "Сумма списана с баланса"
-pubg_id_is_set = "Новый PUBG ID установлен"
 
 # admin
 admin = {
@@ -213,28 +210,30 @@ admin = {
 			'default': "нет",
 			'next': {
 				'set_game_id_': {
+					'btn_template': "Установить PUBG ID: {slot}, PUBG ID: {pubg_id}",
 					'msg': "Введите PUBG ID матча [{game}], текущий PUBG ID: {pubg_id}",
 					'input': {
 						'msg_valid': "Новый PUBG ID для матча [{game}]: {new_id}",
-						'msg_error': "Матч не найден",
 						'msg_success': "PUBG ID установлен",
 					}
 				},
 				'set_winners_': {
+					'btn_template': "Ввести победителей: {slot}, PUBG ID: {pubg_id}",
 					'msg': (
 						"Введите победителей в матче [{game}] - PUBG ID: {pubg_id}\n"
 						"{winners}"
 					),
 					'input': {
-						'msg_error': "Матч не найден",
 						'msg_success': "Призы распределены"
 					},
 					'next': {
 						'place_': {
-							'btn_template': "{place}: {username}",
-							'msg': "Введите PUBG ник или PUBG ID игрока, занявшего {} место",
+							'btn_template': "{place}: {username} (убийств: {kills})\n",
+							'msg': (
+								"Введите PUBG ник или PUBG ID игрока, занявшего {} место.\n"
+								"Если нужно, через запятую можно указать количество убийств"
+							),
 							'input': {
-								'msg_error': "Матч не найден",
 								'msg_valid': "Игрок выбран",
 								'msg_fail': (
 									"Игрок с таким ником/ID не найден. "
@@ -245,6 +244,8 @@ admin = {
 					},
 				},
 				'switch_game_type_': {
+					'btn_template': "Переключить тип призов: {slot}, PUBG ID: {pubg_id}",
+					'msg': "Тип матча изменён на {}",
 				}
 			}
 		},
@@ -261,12 +262,17 @@ admin = {
 					'input': {
 						'msg_valid': "Найден пользователь: @{}",
 						'msg_error': "Такой пользователь не найден. Проверьте юзернейм",
+						'msg_success': "Администратор добавлен!",
+						'msg_fail': "Не получилось добавить"
 					}
 				},
 				'del_admin': {
 					'btn': "Удалить администратора",
 					'msg': "Администраторы:\n{}\nВыберите, кого удалить",
-					'next': {}
+					'input': {
+							'msg_success': "Администратор удалён!",
+							'msg_fail': "Не получилось удалить"
+					}
 				}
 			}
 		},
@@ -277,15 +283,9 @@ admin = {
 	}
 }
 menu['next']['admin'].update(admin)
-admin_added = "Администратор добавлен!"
-admin_removed = "Администартор удалён!"
-admin_update_failed = "Не получилось"
+
 pubg_id_is_needed = "Матч [{}] начнётся через 20 минут! Введите PUBG ID матча."
 goto_admin = "Перейти в админку"
-set_pubg_id = "Установить PUBG ID"
-set_game_winners = "Ввести результаты"
-switch_game_type = "Переключить тип"
-game_type_switched = "Тип матча изменён на {}"
 match_has_started = "Матч [{}], PUBG ID: {} начался!"
 match_has_ended = (
 	"Матч [{game}], PUBG ID: {pubg_id} завершён.\n"
