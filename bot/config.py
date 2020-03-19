@@ -1,4 +1,5 @@
 import logging
+import pytz
 from os import getenv
 
 # bot
@@ -11,8 +12,11 @@ battle_chat = getenv('BATTLE_CHAT_LINK')
 logging.basicConfig(
 	format='%(asctime)s - %(name)s.%(funcName)s - %(levelname)s - %(message)s',
 	level=logging.INFO,
-	handlers=[logging.FileHandler('../pubg_bot.log'), logging.StreamHandler()],
+	handlers=[logging.FileHandler('pubg_bot.log'), logging.StreamHandler()],
 )
+
+# timezone
+timezone = pytz.timezone('Europe/Moscow')
 
 # prizes
 prize_structure = {
