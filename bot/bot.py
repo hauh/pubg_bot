@@ -69,6 +69,7 @@ def updateMenuWithCallbacks():
 
 	admin_menu = texts.menu['next']['admin']
 	admin_menu['callback'] = admin.mainAdmin
+	admin_menu['next']['mailing']['callback'] = admin.mailing
 	manage_admins = admin_menu['next']['manage_admins']
 	manage_admins['next']['add_admin']['callback'] = admin.addAdmin
 	manage_admins['next']['del_admin']['callback'] = admin.delAdmin

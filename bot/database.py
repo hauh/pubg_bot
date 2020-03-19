@@ -63,6 +63,8 @@ def getUser(cursor, user_id=None, username=None,
 			'pubg_username': pubg_username, 'pubg_id': pubg_id
 		}
 	)
+	if cursor.rowcount != 1:
+		return cursor.fetchall()
 	return cursor.fetchone()
 
 

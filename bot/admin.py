@@ -9,19 +9,20 @@ import database
 #######################
 
 logger = getLogger(__name__)
+admin_menu = texts.menu['next']['admin']
 
 
 def withAdminRights(admin_func):
-	def checkRights(update, context, menu):
+	def checkRights(update, context, menu=None):
 		if not context.user_data.get('admin')\
 			and update.effective_user.id not in config.admin_id:
 			return (None, None)
-		return admin_func(update, context, menu)
+		return admin_func(update, context, menu if menu else admin_func.__defaults__[0])
 	return checkRights
 
 
 @withAdminRights
-def mainAdmin(update, context, menu):
+def mainAdmin(update, context, menu=admin_menu):
 	return (menu['msg'], menu['buttons'])
 
 
@@ -29,7 +30,7 @@ def mainAdmin(update, context, menu):
 def addAdmin(update, context, menu):
 	validated_input = context.user_data.pop('validated_input', None)
 	if validated_input:
-		return switchAdmin(update, context, validated_input, True)
+		return switchAdmin(update, context, menu, validated_input, True)
 
 	user_input = context.user_data.pop('user_input', None)
 	confirm_button = []
@@ -69,11 +70,11 @@ def switchAdmin(update, context, menu, admin_id, new_state):
 	else:
 		update.callback_query.answer(menu['input']['msg_fail'], show_alert=True)
 	del context.user_data['history'][-2:]
-	return mainAdmin(update, context, texts.menu['next']['admin'])
+	return mainAdmin(update, context)
 
 
 @withAdminRights
-def manageMatches(update, context, menu):
+def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
 	all_slots = context.bot_data.get('slots', [])
 	pending_games = context.bot_data.get('pending_games', [])
 	running_games = context.bot_data.get('running_games', [])
@@ -130,8 +131,7 @@ def withExistingGame(manage_match_func):
 
 		update.callback_query.answer(texts.error, show_alert=True)
 		del context.user_data['history'][-1:]
-		return manageMatches(
-			update, context, texts.menu['next']['admin']['next']['manage_matches'])
+		return manageMatches(update, context)
 	return checkGame
 
 
@@ -141,8 +141,7 @@ def switchGameType(update, context, menu, game):
 	game.switch_game_type()
 	update.callback_query.answer(menu['msg'].format(game.game_type), show_alert=True)
 	del context.user_data['history'][-1:]
-	return manageMatches(
-		update, context, texts.menu['next']['admin']['next']['manage_matches'])
+	return manageMatches(update, context)
 
 
 @withAdminRights
@@ -154,8 +153,7 @@ def setGameID(update, context, menu, game):
 		answer = menu['input']['msg_success']
 		update.callback_query.answer(answer, show_alert=True)
 		del context.user_data['history'][-1:]
-		return manageMatches(
-			update, context, texts.menu['next']['admin']['next']['manage_matches'])
+		return manageMatches(update, context)
 
 	user_input = context.user_data.pop('user_input', None)
 	if user_input:
@@ -177,8 +175,7 @@ def setWinners(update, context, menu, game):
 		distributePrizes(context, game)
 		update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
 		del context.user_data['history'][-1:]
-		return manageMatches(
-			update, context, texts.menu['next']['admin']['next']['manage_matches'])
+		return manageMatches(update, context)
 
 	games_buttons = []
 	if all(game.winners.values()):
@@ -232,13 +229,11 @@ def setEachWinner(update, context, menu):
 			del context.user_data['history'][-1:]
 			return setWinners(
 				update, context,
-				texts.menu['next']['admin']['next']
-					['manage_matches']['next']['set_winners_']
+				admin_menu['next']['manage_matches']['next']['set_winners_']
 			)
 
 	del context.user_data['history'][-1:]
-	return manageMatches(
-		update, context, texts.menu['next']['admin']['next']['manage_matches'])
+	return manageMatches(update, context)
 
 
 def distributePrizes(context, game):
@@ -266,3 +261,38 @@ def distributePrizes(context, game):
 		)
 	)
 	context.bot_data.get('running_games', set()).discard(game)
+
+
+@withAdminRights
+def mailing(update, context, menu):
+	confirm_spam = context.user_data.pop('validated_input', None)
+	if confirm_spam:
+		users = database.getUser()
+		for delay, user in enumerate(users):
+			context.job_queue.run_once(
+				spam, delay * 0.1,
+				context=(user['id'], context.bot_data.get('spam_message'))
+			)
+		update.callback_query.answer(menu['input']['msg_success'])
+		return mainAdmin(update, context)
+	
+	user_input = context.user_data.pop('user_input', None)
+	if user_input:
+		context.bot_data['spam_message'] = user_input
+		confirm_button = [InlineKeyboardButton(
+			texts.confirm, callback_data='confirm_spam')]
+		return (
+			menu['input']['msg_valid'].format(user_input),
+			[confirm_button] + menu['buttons']
+		)
+
+	return (menu['msg'], menu['buttons'])
+	
+
+def spam(context):
+	user_id, spam_message = context.job.context
+	try:
+		context.bot.send_message(user_id, spam_message)
+	except Exception as err:
+		logger.error('Sending message to {} failed because: {}, {}'.format(
+			user_id, type(err).__name__, err.args))
