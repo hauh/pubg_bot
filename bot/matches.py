@@ -20,7 +20,7 @@ def mainMatches(update, context, menu):
 	picked = context.user_data.setdefault('picked_slots', set())
 	all_slots = context.bot_data.get('slots')
 	for expired_slot in picked - set(all_slots):
-		picked_slots.discard(expired_slot)
+		picked.discard(expired_slot)
 	buttons = [slot.create_button(leave=True) for slot in picked]
 	if len(picked) < 3:
 		buttons += [slot.create_button() for slot in all_slots if slot not in picked]
