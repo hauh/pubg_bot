@@ -75,7 +75,6 @@ def switchAdmin(update, context, menu, admin_id, new_state):
 
 @withAdminRights
 def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
-	all_slots = context.bot_data.get('slots', [])
 	pending_games = context.bot_data.get('pending_games', [])
 	running_games = context.bot_data.get('running_games', [])
 
@@ -96,14 +95,6 @@ def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
 				callback_data=f"set_winners_{slot.slot_id}"
 			)
 		])
-	for slot in all_slots:
-		buttons.append([
-			InlineKeyboardButton(
-				menu['next']['switch_game_type_']['btn_template'].format(
-					slot=str(slot), pubg_id=slot.pubg_id),
-				callback_data=f"switch_game_type_{slot.slot_id}"
-			)
-		])
 	return (
 		menu['msg'].format(
 			pending='\n'.join(str(game) for game in pending_games)
@@ -121,8 +112,6 @@ def withExistingGame(manage_match_func):
 			games = context.bot_data.get('pending_games', {})
 		elif context.user_data['history'][-1].startswith('set_winners'):
 			games = context.bot_data.get('running_games', {})
-		elif context.user_data['history'][-1].startswith('switch_game_type'):
-			games = context.bot_data.get('slots', {})
 		data = context.user_data['history'][-1]
 		game_id = int(data[data.rfind('_') + 1:])
 		for game in games:
@@ -133,15 +122,6 @@ def withExistingGame(manage_match_func):
 		del context.user_data['history'][-1:]
 		return manageMatches(update, context)
 	return checkGame
-
-
-@withAdminRights
-@withExistingGame
-def switchGameType(update, context, menu, game):
-	game.switch_game_type()
-	update.callback_query.answer(menu['msg'].format(game.game_type), show_alert=True)
-	del context.user_data['history'][-1:]
-	return manageMatches(update, context)
 
 
 @withAdminRights

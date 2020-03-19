@@ -25,10 +25,9 @@ def checkSlots(context):
 	if slots:
 		next_slot_time = slots[-1].time
 	else:
-		# next_slot_time = now.replace(minute=0 if now.minute < 30 else 30, second=0)
-		next_slot_time = now + timedelta(minutes=1)
+		next_slot_time = now.replace(minute=0 if now.minute < 30 else 30, second=0)
 	while len(slots) < 24:
-		next_slot_time += timedelta(minutes=5)
+		next_slot_time += timedelta(minutes=30)
 		slots.append(Slot(next_slot_time))
 
 

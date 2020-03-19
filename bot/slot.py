@@ -16,10 +16,9 @@ class Slot:
 
 	def __init__(self, time):
 		self.time = time
-		self.settings = dict.fromkeys(['mode', 'view', 'bet', 'type'], None)
-		self.settings['type'] = 'survival'
+		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 		self.players = set()
-		self.winners = dict.fromkeys(range(1, 3))
+		self.winners = dict.fromkeys(range(1, 11))
 		self.pubg_id = None
 
 		Slot.slots_count += 1
@@ -43,11 +42,11 @@ class Slot:
 
 	@property
 	def is_full(self):
-		return len(self.players) >= 5
+		return len(self.players) >= 90
 
 	@property
 	def is_ready(self):
-		return len(self.players) >= 5
+		return len(self.players) >= 70
 
 	@property
 	def is_set(self):
@@ -60,12 +59,6 @@ class Slot:
 	@property
 	def game_type(self):
 		return self.settings['type']
-
-	def switch_game_type(self):
-		if self.settings['type'] == 'survival':
-			self.settings['type'] = 'kills'
-		else:
-			self.settings['type'] = 'survival'
 
 	def create_button(self, leave=False):
 		if leave:
@@ -84,7 +77,7 @@ class Slot:
 	def leave(self, user_id):
 		self.players.discard(int(user_id))
 		if not self.players:
-			self.settings = dict.fromkeys(['mode', 'view', 'bet'], None)
+			self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 
 	def reward(self):
 		winners = set()

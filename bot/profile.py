@@ -9,9 +9,10 @@ import database
 #######################
 
 logger = getLogger(__name__)
+profile_menu = texts.menu['next']['profile']
 
 
-def mainProfile(update, context, menu):
+def mainProfile(update, context, menu=profile_menu):
 	return (
 		menu['msg'].format(
 			user_id=update.effective_user.id,
@@ -49,7 +50,7 @@ def withInput(setter_func):
 			else:
 				update.callback_query.answer(menu['input']['msg_fail'], show_alert=True)
 			context.user_data['history'].pop()
-			return mainProfile(update, context, texts.menu['next']['profile'])
+			return mainProfile(update, context)
 
 		user_input = context.user_data.pop('user_input', None)
 		if not user_input:

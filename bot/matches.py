@@ -8,10 +8,10 @@ import database
 #######################
 
 logger = getLogger(__name__)
-slot_settings = ['mode', 'view', 'bet']
+matches_menu = texts.menu['next']['matches']
 
 
-def mainMatches(update, context, menu):
+def mainMatches(update, context, menu=matches_menu):
 	if not context.user_data.get('pubg_id')\
 		or not context.user_data.get('pubg_username'):
 		update.callback_query.answer(texts.pubg_is_not_set)
@@ -56,7 +56,7 @@ def slotMenu(update, context, menu):
 
 	update.callback_query.answer(answer, show_alert=True)
 	del context.user_data['history'][-1:]
-	return mainMatches(update, context, texts.menu['next']['matches'])
+	return mainMatches(update, context)
 
 
 def findSlot(context):
@@ -87,7 +87,7 @@ def pickSlot(user_id, user_data, slot):
 
 def setupSlot(update, context, menu):
 	settings = context.user_data.setdefault(
-		'slot_settings', dict.fromkeys(slot_settings))
+		'slot_settings', dict.fromkeys(matches_menu['next']['slot_']['next'].keys()))
 	if all(settings.values()):
 		confirm_button = [InlineKeyboardButton(
 			texts.confirm, callback_data='confirm_slot_setup')]
