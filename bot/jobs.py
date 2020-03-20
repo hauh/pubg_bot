@@ -61,14 +61,15 @@ def startGame(context):
 	context.bot_data.get('pending_games').discard(slot)
 	ready = True if slot.pubg_id else False
 	if not ready:
-		logger.warning(
+		logger.error(
 			f"Game {slot.slot_id} - {str(slot)} canceled "
-			"because no PUBG ID was provided!"
+			"because no room for it was created!"
 		)
 		msg = texts.match_didnt_happen.format(str(slot))
 	else:
 		logger.info(f"Game {slot.slot_id} - {str(slot)} started!")
-		msg = texts.match_is_nigh.format(slot.pubg_id)
+		msg = texts.match_is_nigh.format(
+			slot=str(slot), room_name=slot.pubg_id, room_pass=slot.room_pass)
 		context.bot_data.setdefault('running_games', set()).add(slot)
 		context.bot.send_message(
 			config.admin_group_id,

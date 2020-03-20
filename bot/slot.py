@@ -20,6 +20,7 @@ class Slot:
 		self.players = set()
 		self.winners = dict.fromkeys(range(1, 11))
 		self.pubg_id = None
+		self.room_pass = None
 
 		Slot.slots_count += 1
 		self.slot_id = Slot.slots_count
@@ -27,13 +28,13 @@ class Slot:
 		logger.info(f"New slot ({str(self)}) has been created")
 
 	def __str__(self):
-		return "{time} - {players} - {mode} - {view} - {bet} - {type}".format(
+		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
 			time=self.time.strftime("%H:%M"),
 			players=len(self.players),
+			type=self.settings['type'],
 			mode=self.settings['mode'],
 			view=self.settings['view'],
-			bet=self.settings['bet'],
-			type=self.settings['type']
+			bet=self.settings['bet']
 		)
 
 	@property

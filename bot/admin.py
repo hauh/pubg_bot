@@ -83,7 +83,7 @@ def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
 		buttons.append([
 			InlineKeyboardButton(
 				menu['next']['set_game_id_']['btn_template'].format(
-					slot=str(slot), pubg_id=slot.pubg_id),
+					game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
 				callback_data=f"set_game_id_{slot.slot_id}"
 			)
 		])
@@ -91,7 +91,7 @@ def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
 		buttons.append([
 			InlineKeyboardButton(
 				menu['next']['set_winners_']['btn_template'].format(
-					slot=str(slot), pubg_id=slot.pubg_id),
+					game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
 				callback_data=f"set_winners_{slot.slot_id}"
 			)
 		])
@@ -129,21 +129,25 @@ def withExistingGame(manage_match_func):
 def setGameID(update, context, menu, game):
 	validated_input = context.user_data.pop('validated_input', None)
 	if validated_input:
-		game.pubg_id = int(validated_input)
+		game.pubg_id, game.room_pass = validated_input.split(',')
 		answer = menu['input']['msg_success']
 		update.callback_query.answer(answer, show_alert=True)
 		del context.user_data['history'][-1:]
 		return manageMatches(update, context)
 
+	confirm_button = []
 	user_input = context.user_data.pop('user_input', None)
 	if user_input:
-		confirm_button = [InlineKeyboardButton(
-			texts.confirm, callback_data=f'confirm_{user_input}')]
-		message = menu['input']['msg_valid'].format(
-			game=str(game), new_id=user_input)
+		user_input = user_input.split(',')
+		if len(user_input) != 2:
+			message = menu['input']['msg_error']
+		else:
+			confirm_button = [InlineKeyboardButton(
+				texts.confirm, callback_data=f'confirm_{user_input[0]},{user_input[1]}')]
+			message = menu['input']['msg_valid'].format(
+				game=str(game), pubg_id=user_input[0], room_pass=user_input[1])
 	else:
-		confirm_button = []
-		message = menu['msg'].format(game=str(game), pubg_id=game.pubg_id)
+		message = menu['msg'].format(game=str(game), pubg_id=game.pubg_id, room_pass=game.room_pass)
 	return (message, [confirm_button] + menu['buttons'])
 
 
@@ -152,8 +156,8 @@ def setGameID(update, context, menu, game):
 def setWinners(update, context, menu, game):
 	all_winner_set = context.user_data.pop('validated_input', None)
 	if all_winner_set:
-		distributePrizes(context, game)
 		update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
+		distributePrizes(context, game)
 		del context.user_data['history'][-1:]
 		return manageMatches(update, context)
 
@@ -203,7 +207,7 @@ def setEachWinner(update, context, menu):
 	for game in running_games:
 		if game.slot_id == game_id:
 			if not user:
-				game.winners[place] = texts.user_not_found
+				game.winners[place] = (texts.user_not_found, 0)
 				return (menu['input']['msg_fail'], menu['buttons'])
 			game.winners[place] = (user['pubg_username'], kills)
 			del context.user_data['history'][-1:]
@@ -228,8 +232,7 @@ def distributePrizes(context, game):
 		winner_data = context.dispatcher.user_data.get(winner_id)
 		winner_data['balance'] = database.updateBalance(winner_id, prize)
 		winner_data['game_message'] = context.bot.send_message(
-			winner_id, texts.victory.format(str(game), place, prize)
-		)
+			winner_id, texts.victory.format(str(game), place, prize))
 	logger.info(f"Game ended, winners are: {winners}")
 	context.bot.send_message(
 		config.admin_group_id,
