@@ -25,7 +25,12 @@ class Slot:
 		Slot.slots_count += 1
 		self.slot_id = Slot.slots_count
 
-		logger.info(f"New slot ({str(self)}) has been created")
+		logger.info(
+			"New slot id: {id} [{time}] has been created".format(
+				id=self.slot_id,
+				time=self.time.strftime("%H:%M")
+			)
+		)
 
 	def __str__(self):
 		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
@@ -84,12 +89,16 @@ class Slot:
 		winners = set()
 		prize_structure = config.prize_structure[self.game_type]
 		prize_fund = self.prize_fund
+		total_kills = 0
+		for _, kills in self.winners.values():
+			total_kills += kills
+		kill_price = round(prize_fund / 100.0 * prize_structure['kill'] / total_kills)
 		total_payout = 0
 		for place, winner in self.winners.items():
 			username, kills = winner
 			if username != texts.user_not_found:
 				percent = prize_structure[place]
-				prize = round(prize_fund / 100.0 * percent) + kills * prize_structure['kill']
+				prize = round(prize_fund / 100.0 * percent) + kills * kill_price
 				total_payout += prize
 				user = database.getUser(pubg_username=username)
 				winners.add((user['id'], place, prize))
