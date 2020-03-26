@@ -68,15 +68,15 @@ class MenuHandler(Handler):
 					update.callback_query.data = 'main'
 			elif re.match(r'^confirm', update.callback_query.data):
 				context.user_data['validated_input'] =\
-					update.callback_query.data.lstrip('confirm_')
+					update.callback_query.data.replace('confirm_', '', 1)
 				update.callback_query.data = history[-1]
 		else:
 			message = update.effective_message
 			context.user_data['old_messages'].append(message)
 			update.callback_query = CallbackQuery(
 				0, update.effective_user, update.effective_chat,
-				data='main' if message.text == '/start' or len(history) == 0
-					else 'admin' if message_text == '/admin' else history[-1]
+				data='main' if message.text == '/start' or not history
+					else 'admin' if message.text == '/admin' else history[-1]
 			)
 			context.user_data['user_input'] = message.text
 		return update.callback_query.data

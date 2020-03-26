@@ -79,6 +79,8 @@ def updateMenuWithCallbacks():
 	manage_matches['next']['set_winners_']['callback'] = admin.setWinners
 	manage_matches['next']['set_winners_']['next']['place_']['callback'] =\
 		admin.setEachWinner
+	manage_matches['next']['set_winners_']['next']['set_killers_']['callback'] =\
+		admin.setKillers
 
 	matches_menu = texts.menu['next']['matches']
 	matches_menu['callback'] = matches.mainMatches
@@ -127,7 +129,7 @@ def main():
 		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
 	)
 
-	updater.job_queue.run_repeating(jobs.checkSlots, 60, first=0)
+	updater.job_queue.run_repeating(jobs.checkSlots, 10, first=0)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_handler(

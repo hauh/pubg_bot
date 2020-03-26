@@ -17,7 +17,7 @@ def checkSlots(context):
 	now = datetime.now(config.timezone)
 	slots = context.bot_data.setdefault('slots', [])
 	for index, slot in enumerate(slots):
-		if slot.is_ready or slot.time <= now + timedelta(minutes=20):
+		if slot.is_ready or slot.time <= now + timedelta(minutes=config.times['close_slot']):
 			ready_slot = slots.pop(index)
 			if ready_slot.time + timedelta(hours=1) < now:
 				slots.insert(index, Slot(ready_slot.time))
@@ -25,9 +25,10 @@ def checkSlots(context):
 	if slots:
 		next_slot_time = slots[-1].time
 	else:
-		next_slot_time = now.replace(minute=0 if now.minute < 30 else 30, second=0)
+		next_slot_time = (now + timedelta(minutes=30)).replace(
+			minute=0 if now.minute < 30 else 30, second=0, microsecond=0)
 	while len(slots) < 24:
-		next_slot_time += timedelta(minutes=30)
+		next_slot_time += timedelta(minutes=config.times['slot_interval'])
 		slots.append(Slot(next_slot_time))
 
 
@@ -41,7 +42,7 @@ def manageSlot(slot, context):
 				[[InlineKeyboardButton(texts.goto_admin, callback_data='manage_matches')]])
 		)
 		context.bot_data.setdefault('pending_games', set()).add(slot)
-		delay = slot.time - datetime.now(config.timezone) - timedelta(minutes=5)
+		delay = slot.time - datetime.now(config.timezone) - timedelta(minutes=config.times['send_room'])
 		context.job_queue.run_once(startGame, delay, context=slot)
 	for player_id in slot.players:
 		player_data = context.dispatcher.user_data.get(player_id)

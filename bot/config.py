@@ -15,8 +15,13 @@ logging.basicConfig(
 	handlers=[logging.FileHandler('pubg_bot.log'), logging.StreamHandler()],
 )
 
-# timezone
+# time
 timezone = pytz.timezone('Europe/Moscow')
+times = {
+	'slot_interval': 30,
+	'close_slot': 30,
+	'send_room': 10,
+}
 
 # prizes
 prize_structure = {
@@ -34,7 +39,7 @@ prize_structure = {
 		10: 6.0,
 	},
 	'kills': {
-		'kill': 55.0,
+		'kill': 75.0,
 		1: 0.0,
 		2: 0.0,
 		3: 0.0,

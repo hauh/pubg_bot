@@ -68,6 +68,16 @@ def getUser(cursor, user_id=None, username=None,
 	return cursor.fetchone()
 
 
+def getPUBGUser(pubg_user_identifier):
+	user = getUser(pubg_username=pubg_user_identifier)
+	if not user:
+		try:
+			user = getUser(pubg_id=int(pubg_user_identifier))
+		except (ValueError, TypeError):
+			pass
+	return user
+
+
 @withConnection
 def saveUser(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
