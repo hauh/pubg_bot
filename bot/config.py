@@ -18,9 +18,9 @@ logging.basicConfig(
 # time
 timezone = pytz.timezone('Europe/Moscow')
 times = {
-	'slot_interval': 30,
-	'close_slot': 30,
-	'send_room': 10,
+	'slot_interval': 5,
+	'close_slot': 2,
+	'send_room': 1,
 }
 
 #slots
