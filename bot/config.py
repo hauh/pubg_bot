@@ -23,6 +23,10 @@ times = {
 	'send_room': 10,
 }
 
+#slots
+max_players = 4
+enough_players = 4
+
 # prizes
 prize_structure = {
 	'survival': {

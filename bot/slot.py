@@ -49,11 +49,11 @@ class Slot:
 
 	@property
 	def is_full(self):
-		return len(self.players) >= 1
+		return len(self.players) >= config.max_players
 
 	@property
 	def is_ready(self):
-		return len(self.players) >= 1
+		return len(self.players) >= config.enough_players
 
 	@property
 	def is_set(self):
