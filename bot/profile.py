@@ -1,4 +1,5 @@
 import re
+import random
 from logging import getLogger
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ChatAction
@@ -94,14 +95,29 @@ def setPubgID(update, context, menu, user_input, validated):
 	return True
 
 
-@withInput
-def addFunds(update, context, menu, user_input, validated):
-	if not validated:
-		return re.match(r'^[0-9]{2,5}$', user_input)
+def addFunds(update, context, menu):
+	payment_code = context.user_data.setdefault(
+		'payment_code', str(random.randint(100000, 999999)))
+	return (
+		menu['msg'].format(
+			qiwi_phone=config.qiwi_phone,
+			payment_code=payment_code
+		),
+		menu['buttons']
+	)
 
-	context.user_data['balance'] = database.updateBalance(
-		int(update.effective_user.id), int(user_input))
-	return True
+
+def checkPayment(update, context, menu):
+	update.effective_chat.send_action(ChatAction.TYPING)
+	if payment := qiwi.check_history(context.user_data['payment_code']):
+		context.user_data['balance'] = database.updateBalance(
+			int(update.effective_user.id), *payment)
+		answer_msg = menu['input']['msg_success'].format(payment[1])
+		del context.user_data['payment_code']
+	else:
+		answer_msg = menu['input']['msg_error']
+	update.callback_query.answer(answer_msg, show_alert=True)
+	return mainProfile(update, context)
 
 
 def doWithdraw(update, context, menu, details):
@@ -117,9 +133,9 @@ def doWithdraw(update, context, menu, details):
 				reply_markup=InlineKeyboardMarkup(
 					[[InlineKeyboardButton(texts.goto_qiwi, url=config.qiwi_url)]])
 			)
-		elif context.user_data['balance'] >= amount and qiwi.make_payment(**details):
+		elif context.user_data['balance'] >= amount and (payment_id := qiwi.make_payment(**details)):
 			answer_msg = menu['input']['msg_success']
-			context.user_data['balance'] = database.updateBalance(user_id, -amount)
+			context.user_data['balance'] = database.updateBalance(user_id, payment_id, -amount)
 	del context.user_data['withdraw_details']
 	update.callback_query.answer(answer_msg or menu['input']['msg_fail'], show_alert=True)
 

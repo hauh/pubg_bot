@@ -53,8 +53,8 @@ class MenuHandler(Handler):
 
 		context.user_data.pop('user_input', None)
 		if text:
-			MenuHandler.cleanChat(old_messages)
 			old_messages = context.user_data.setdefault('old_messages', [])
+			MenuHandler.cleanChat(old_messages)
 			self._sendMessage(update, context, text, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):

@@ -85,15 +85,15 @@ def saveUser(cursor, user_id, username):
 
 
 @withConnection
-def updateBalance(cursor, user_id, amount):
-	for query in queries.update_balance:
-		cursor.execute(query, (amount, user_id,))
+def updateBalance(cursor, user_id, transaction_id, amount):
+	cursor.execute(queries.save_transaction, (transaction_id, amount, user_id))
+	cursor.execute(queries.update_balance, (amount, user_id))
 	cursor.execute(
 		queries.get_user,
 		{'id': user_id, 'username': None, 'pubg_username': None, 'pubg_id': None}
 	)
 	logger.info(
-		"Balance of user {} has been changed for {}".format(user_id, amount))
+		f"Balance of user {user_id} has been changed for {amount} [{transaction_id}]")
 	return cursor.fetchone()['balance']
 
 

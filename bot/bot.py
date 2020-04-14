@@ -95,6 +95,7 @@ def updateMenuWithCallbacks():
 	profile_menu['next']['set_pubg_username']['callback'] =\
 		profile.setPubgUsername
 	profile_menu['next']['add_funds']['callback'] = profile.addFunds
+	profile_menu['next']['add_funds']['next']['check_payment']['callback'] = profile.checkPayment
 	profile_menu['next']['withdraw_funds']['callback'] = profile.withdrawFunds
 	for provider in profile_menu['next']['withdraw_funds']['next']['provider']['next'].values():
 		provider['callback'] = profile.getWithdrawProvider

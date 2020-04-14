@@ -61,23 +61,41 @@ def make_payment(provider, account, amount):
 	payment = requests.post(
 		f'https://edge.qiwi.com/sinap/api/v2/terms/{providers[provider]}/payments',
 		json={
-			"id": str(int(time() * 1000)),
-			"sum": {
-				"amount": amount,
-				"currency": "643"
+			'id': str(int(time() * 1000)),
+			'sum': {
+				'amount': amount,
+				'currency': "643"
 			},
-			"paymentMethod": {
-				"type": "Account",
-				"accountId": "643"
+			'paymentMethod': {
+				'type': "Account",
+				'accountId': "643"
 			},
-			"fields": {
-				"account": account,
+			'fields': {
+				'account': account,
 			},
-			"comment": "PUBG",
+			'comment': "PUBG",
 		},
 		headers=headers
 	)
 	if not payment.ok:
 		logger.error(f"Payment error: {payment.status_code} ({payment.json()})")
-		return False
-	return True
+		return None
+	return payment.json()['id']
+
+
+def check_history(payment_code):
+	history = requests.get(
+		f"https://edge.qiwi.com/payment-history/v2/persons/{config.qiwi_phone}/payments",
+		params={
+			'rows': 50,
+			'operation': 'IN',
+		},
+		headers=headers
+	)
+	if not history.ok:
+		logger.error(f"History check error: {history.status_code} ({history.json()})")
+		return None
+	for payment in history.json()['data']:
+		if payment['comment'] == payment_code and payment['status'] == 'SUCCESS':
+			return int(payment['txnId']), int(payment['sum']['amount'])
+	return None

@@ -22,8 +22,8 @@ tables = (
 		)
 	""",
 	"""
-		CREATE TABLE IF NOT EXISTS balance_history (
-			id			SERIAL PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS transactions (
+			id			BIGINT PRIMARY KEY,
 			amount		INT NOT NULL,
 			user_id		INT,
 			date		TIMESTAMPTZ,
@@ -57,15 +57,16 @@ save_user =\
 				username = EXCLUDED.username
 	"""
 
-update_balance = (
+update_balance =\
 	"""
 		UPDATE users SET balance = balance + %s WHERE id = %s
-	""",
 	"""
-		INSERT INTO balance_history (amount, user_id, date)
-			VALUES (%s, %s, NOW())
-	""",
-)
+
+save_transaction =\
+	"""
+		INSERT INTO transactions (id, amount, user_id, date)
+			VALUES (%s, %s, %s, NOW())
+	"""
 
 update_pubg_id =\
 	"""
@@ -79,7 +80,7 @@ update_pubg_username =\
 
 get_balance_history =\
 	"""
-		SELECT * FROM balance_history WHERE
+		SELECT * FROM transactions WHERE
 			(user_id = %(user_id)s OR %(user_id)s is NULL)
 	"""
 
