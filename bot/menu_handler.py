@@ -53,10 +53,9 @@ class MenuHandler(Handler):
 
 		context.user_data.pop('user_input', None)
 		if text:
-			old_messages = context.user_data.setdefault('old_messages', [])
 			MenuHandler.cleanChat(old_messages)
-			messages = self._splitText(text)
-			self._sendMessages(update, context, messages, buttons, old_messages)
+			old_messages = context.user_data.setdefault('old_messages', [])
+			self._sendMessage(update, context, text, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
 		if update.callback_query:
@@ -91,7 +90,7 @@ class MenuHandler(Handler):
 					return deeper_result
 		return None
 
-	def _splitText(self, text):
+	def _sendMessage(self, update, context, text, buttons, old_messages):
 		messages = []
 		i = 0
 		while i + constants.MAX_MESSAGE_LENGTH < len(text):
@@ -99,9 +98,6 @@ class MenuHandler(Handler):
 			messages.append(text[i:max_lines_index])
 			i = max_lines_index + 1
 		messages.append(text[i:])
-		return messages
-
-	def _sendMessages(self, update, context, messages, buttons, old_messages):
 		for message in messages:
 			old_messages.append(
 				update.effective_chat.send_message(

@@ -8,6 +8,11 @@ admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
 admin_group_id = getenv('ADMIN_GROUP_ID')
 battle_chat = getenv('BATTLE_CHAT_LINK')
 
+# qiwi
+qiwi_token = getenv('QIWI_TOKEN')
+qiwi_phone = getenv('QIWI_PHONE')
+qiwi_url = 'https://qiwi.com'
+
 # logger
 logging.basicConfig(
 	format='%(asctime)s - %(name)s.%(funcName)s - %(levelname)s - %(message)s',

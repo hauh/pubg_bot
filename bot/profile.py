@@ -1,10 +1,12 @@
 import re
 from logging import getLogger
 
-from telegram import InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ChatAction
 
+import config
 import texts
 import database
+import qiwi
 
 #######################
 
@@ -46,11 +48,14 @@ def withInput(setter_func):
 		validated_input = context.user_data.pop('validated_input', None)
 		if validated_input:
 			if setter_func(update, context, menu, validated_input, validated=True):
-				update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
-			else:
+				if 'msg_success' in menu['input']:
+					update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
+			elif 'msg_fail' in menu['input']:
 				update.callback_query.answer(menu['input']['msg_fail'], show_alert=True)
 			context.user_data['history'].pop()
-			return mainProfile(update, context)
+			prev = context.user_data['history'][-1]
+			prev_menu = profile_menu['next'][prev] if prev in profile_menu['next'] else profile_menu
+			return prev_menu['callback'](update, context)
 
 		user_input = context.user_data.pop('user_input', None)
 		if not user_input:
@@ -99,15 +104,82 @@ def addFunds(update, context, menu, user_input, validated):
 	return True
 
 
-@withInput
-def withdrawFunds(update, context, menu, user_input, validated):
-	if not validated:
-		return re.match(r'^[0-9]{3,5}$', user_input)
-
+def doWithdraw(update, context, menu, details):
 	user_id = int(update.effective_user.id)
-	amount = int(user_input)
-	current_funds = database.getUser(user_id)['balance']
-	if current_funds < amount:
+	answer_msg = None
+	if commission := qiwi.check_commission(**details):
+		amount = details['amount'] + commission
+		context.user_data['balance'] = database.getUser(user_id)['balance']
+		if qiwi.check_balance() < amount:
+			answer_msg = menu['input']['msg_error']
+			context.bot.send_message(
+				config.admin_group_id, texts.qiwi_is_empty,
+				reply_markup=InlineKeyboardMarkup(
+					[[InlineKeyboardButton(texts.goto_qiwi, url=config.qiwi_url)]])
+			)
+		elif context.user_data['balance'] >= amount and qiwi.make_payment(**details):
+			answer_msg = menu['input']['msg_success']
+			context.user_data['balance'] = database.updateBalance(user_id, -amount)
+	del context.user_data['withdraw_details']
+	update.callback_query.answer(answer_msg or menu['input']['msg_fail'], show_alert=True)
+
+
+def withdrawFunds(update, context, menu=profile_menu['next']['withdraw_funds']):
+	update.effective_chat.send_action(ChatAction.TYPING)
+	details = context.user_data.setdefault(
+		'withdraw_details', dict.fromkeys(['provider', 'account', 'amount']))
+	confirm_button, commission_warning = [], ""
+	if all(details.values()):
+		if context.user_data.pop('validated_input', None) == 'withdraw':
+			doWithdraw(update, context, menu, details)
+		elif not (commission := qiwi.check_commission(**details)):
+			callback_query.answer(menu['input']['msg_fail'], show_alert=True)
+		else:
+			confirm_button = [InlineKeyboardButton(
+				texts.confirm, callback_data=f'confirm_withdraw')]
+			commission_warning = menu['input']['msg_valid'].format(
+				commission, details['amount'] + commission)
+	return (
+		menu['msg'].format(
+			balance=context.user_data['balance'],
+			**{key: value or menu['default'] for key, value in details.items()}
+		) + commission_warning,
+		[confirm_button] + menu['buttons']
+	)
+
+
+def getWithdrawProvider(update, context, menu):
+	if details := context.user_data.get('withdraw_details'):
+		details['provider'] = update.callback_query.data
+	del context.user_data['history'][-2:]
+	return withdrawFunds(update, context)
+
+
+@withInput
+def getWithdrawAccount(update, context, menu, user_input, validated):
+	details = context.user_data.get('withdraw_details', {})
+	if not validated:
+		match_qiwi = re.match(r'^7[0-9]{10}$', user_input)
+		match_card = re.match(r'^[0-9]{16}$', user_input)
+		provider = details.get('provider')
+		if provider is not None:
+			if provider == 'qiwi':
+				return match_qiwi
+			return match_card
+		return match_qiwi or match_card
+
+	if not details:
 		return False
-	context.user_data['balance'] = database.updateBalance(user_id, -amount)
+	details['account'] = user_input
+	return True
+
+
+@withInput
+def getWithdrawAmount(update, context, menu, user_input, validated):
+	if not validated:
+		return re.match(r'^[1-9][0-9]{1,4}$', user_input)
+
+	if not (details := context.user_data.get('withdraw_details')):
+		return False
+	details['amount'] = int(user_input)
 	return True

@@ -85,9 +85,8 @@ def updateMenuWithCallbacks():
 	matches_menu = texts.menu['next']['matches']
 	matches_menu['callback'] = matches.mainMatches
 	matches_menu['next']['slot_']['callback'] = matches.slotMenu
-	for setting in matches_menu['next']['slot_']['next'].keys():
-		setting_menu = matches_menu['next']['slot_']['next'][setting]['next']
-		for setting_choice in setting_menu.values():
+	for setting_menu in matches_menu['next']['slot_']['next'].values():
+		for setting_choice in setting_menu['next'].values():
 			setting_choice['callback'] = matches.getSlotSetting
 
 	profile_menu = texts.menu['next']['profile']
@@ -97,6 +96,12 @@ def updateMenuWithCallbacks():
 		profile.setPubgUsername
 	profile_menu['next']['add_funds']['callback'] = profile.addFunds
 	profile_menu['next']['withdraw_funds']['callback'] = profile.withdrawFunds
+	for provider in profile_menu['next']['withdraw_funds']['next']['provider']['next'].values():
+		provider['callback'] = profile.getWithdrawProvider
+	profile_menu['next']['withdraw_funds']['next']['account']['callback'] =\
+		profile.getWithdrawAccount
+	profile_menu['next']['withdraw_funds']['next']['amount']['callback'] =\
+		profile.getWithdrawAmount
 	profile_menu['next']['balance_history']['callback'] = profile.balanceHistory
 
 
