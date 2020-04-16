@@ -197,5 +197,8 @@ def getWithdrawAmount(update, context, menu, user_input, validated):
 
 	if not (details := context.user_data.get('withdraw_details')):
 		return False
-	details['amount'] = int(user_input)
+	if (amount := int(user_input)) > context.user_data['balance']:
+		return False
+
+	details['amount'] = amount
 	return True
