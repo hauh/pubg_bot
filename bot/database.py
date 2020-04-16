@@ -1,5 +1,6 @@
 from logging import getLogger
 from os import getenv
+import random
 
 import psycopg2
 import psycopg2.extras
@@ -85,7 +86,9 @@ def saveUser(cursor, user_id, username):
 
 
 @withConnection
-def updateBalance(cursor, user_id, transaction_id, amount):
+def updateBalance(cursor, user_id, amount, transaction_id=None):
+	if not transaction_id:
+		transaction_id = random.randrange(1000000, 9999999)
 	cursor.execute(queries.save_transaction, (transaction_id, amount, user_id))
 	cursor.execute(queries.update_balance, (amount, user_id))
 	cursor.execute(

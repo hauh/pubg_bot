@@ -97,5 +97,5 @@ def check_history(payment_code):
 		return None
 	for payment in history.json()['data']:
 		if payment['comment'] == payment_code and payment['status'] == 'SUCCESS':
-			return int(payment['txnId']), int(payment['sum']['amount'])
+			return int(payment['sum']['amount']), int(payment['txnId'])
 	return None

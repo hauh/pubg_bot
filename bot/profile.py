@@ -136,7 +136,7 @@ def doWithdraw(update, context, menu, details):
 			)
 		elif context.user_data['balance'] >= amount and (payment_id := qiwi.make_payment(**details)):
 			answer_msg = menu['input']['msg_success']
-			context.user_data['balance'] = database.updateBalance(user_id, payment_id, -amount)
+			context.user_data['balance'] = database.updateBalance(user_id, -amount, payment_id)
 	del context.user_data['withdraw_details']
 	update.callback_query.answer(answer_msg or menu['input']['msg_fail'], show_alert=True)
 
