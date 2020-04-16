@@ -117,6 +117,7 @@ def checkPayment(update, context, menu):
 	else:
 		answer_msg = menu['input']['msg_error']
 	update.callback_query.answer(answer_msg, show_alert=True)
+	del context.user_data['history'][-2]
 	return mainProfile(update, context)
 
 
