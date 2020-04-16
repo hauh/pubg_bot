@@ -108,7 +108,10 @@ class Slot:
 		winners = set()
 		prize_structure = config.prize_structure[self.game_type]
 		prize_fund = self.prize_fund
-		kill_price = round(prize_fund / 100.0 * prize_structure['kill'] / self.total_kills)
+		if self.total_kills:
+			kill_price = round(prize_fund / 100.0 * prize_structure['kill'] / self.total_kills)
+		else:
+			kill_price = 0
 		total_payout = 0
 		if self.game_type != 'kills':
 			for place, winner in self.winners.items():
