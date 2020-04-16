@@ -241,7 +241,7 @@ def setKillers(update, context, menu, game):
 				score = int(score)
 				if username in game.killers.keys() and score == 0:
 					del game.killers[username]
-				elif game.total_kills + score >= len(game.players) - 1:
+				elif game.total_kills + score > game.players_count - 1:
 					error_message = menu['input']['msg_fail']
 				else:
 					game.killers[username] = score
@@ -249,6 +249,7 @@ def setKillers(update, context, menu, game):
 	return (
 		menu['msg'].format(
 			kills=game.total_kills,
+			players=game.players_count,
 			killers="\n".join(
 				[f'{killer} - {score}' for killer, score in game.killers.items()]),
 		) + (f'\n\n*{error_message}*' if error_message else ""),

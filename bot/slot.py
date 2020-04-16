@@ -48,6 +48,10 @@ class Slot:
 		return int(self.settings['bet'])
 
 	@property
+	def players_count(self):
+		return len(self.players)
+
+	@property
 	def is_full(self):
 		return len(self.players) >= config.max_players
 
@@ -61,7 +65,7 @@ class Slot:
 
 	@property
 	def prize_fund(self):
-		return int(self.settings['bet']) * len(self.players)
+		return int(self.settings['bet']) * self.players_count
 
 	@property
 	def game_type(self):
@@ -71,12 +75,14 @@ class Slot:
 	def total_kills(self):
 		return sum(self.killers.values())
 
+
 	@property
 	def winners_are_set(self):
 		return (
 			(self.game_type == 'survival' and all(self.winners.values()))
-			or (self.game_type == 'kills' and self.total_kills > 10)
-			or (self.game_type == 'mixed' and all(self.winners.values()) and self.total_kills > 10)
+			or (self.game_type == 'kills' and self.total_kills == self.players_count - 1)
+			or (self.game_type == 'mixed' and all(self.winners.values())
+				and self.total_kills == self.players_count - 1)
 		)
 
 	def create_button(self, leave=False):
