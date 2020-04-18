@@ -267,7 +267,7 @@ def distributePrizes(context, game):
 	winners, total_payouts = game.reward()
 	for winner_id, victory_message, prize in winners:
 		winner_data = context.dispatcher.user_data.get(winner_id)
-		winner_data['balance'] = database.updateBalance(winner_id, prize)
+		winner_data['balance'], _ = database.updateBalance(winner_id, prize, 'prize')
 		winner_data['game_message'] = context.bot.send_message(
 			winner_id,
 			texts.victory.format(

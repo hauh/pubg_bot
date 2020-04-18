@@ -7,6 +7,7 @@ bot_token = getenv('TG_TOKEN')
 admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
 admin_group_id = getenv('ADMIN_GROUP_ID')
 battle_chat = getenv('BATTLE_CHAT_LINK')
+db_url = getenv('HEROKU_DB')
 
 # qiwi
 qiwi_token = getenv('QIWI_TOKEN')
@@ -20,15 +21,13 @@ logging.basicConfig(
 	handlers=[logging.FileHandler('pubg_bot.log'), logging.StreamHandler()],
 )
 
-# time
+# slots
 timezone = pytz.timezone('Europe/Moscow')
 times = {
 	'slot_interval': 5,
 	'close_slot': 2,
 	'send_room': 1,
 }
-
-#slots
 max_players = 4
 enough_players = 4
 

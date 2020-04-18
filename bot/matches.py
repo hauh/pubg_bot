@@ -69,7 +69,7 @@ def findSlot(context):
 
 def leaveSlot(user_id, user_data, slot):
 	user_data['picked_slots'].remove(slot)
-	user_data['balance'] = database.updateBalance(user_id, slot.bet)
+	user_data['balance'] = database.updateBalance(user_id, slot.bet, 'refund')
 	slot.leave(user_id)
 	return texts.left_from_match
 
@@ -80,7 +80,7 @@ def pickSlot(user_id, user_data, slot):
 	if slot.is_full:
 		return texts.is_full_slot
 	user_data['picked_slots'].add(slot)
-	user_data['balance'] = database.updateBalance(user_id, -slot.bet)
+	user_data['balance'] = database.updateBalance(user_id, -slot.bet, 'buy-in')
 	slot.join(user_id)
 	return texts.match_is_chosen
 

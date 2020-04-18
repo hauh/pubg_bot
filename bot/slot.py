@@ -12,8 +12,6 @@ logger = getLogger(__name__)
 
 
 class Slot:
-	slots_count = 0
-
 	def __init__(self, time):
 		self.time = time
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
@@ -22,16 +20,7 @@ class Slot:
 		self.killers = dict()
 		self.pubg_id = None
 		self.room_pass = None
-
-		Slot.slots_count += 1
-		self.slot_id = Slot.slots_count
-
-		logger.info(
-			"New slot id: {id} [{time}] has been created".format(
-				id=self.slot_id,
-				time=self.time.strftime("%H:%M")
-			)
-		)
+		self.slot_id = None
 
 	def __str__(self):
 		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(

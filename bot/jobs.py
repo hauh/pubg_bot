@@ -48,7 +48,7 @@ def manageSlot(slot, context):
 	for player_id in slot.players:
 		player_data = context.dispatcher.user_data.get(player_id)
 		if not ready:
-			player_data['balance'] = database.updateBalance(player_id, slot.bet)
+			player_data['balance'] = database.updateBalance(player_id, slot.bet, 'refund')
 			msg = texts.match_didnt_happen.format(str(slot))
 			context.job_queue.run_once(
 				delGameMessage, timedelta(days=1), context=player_id)
@@ -84,7 +84,7 @@ def startGame(context):
 		if not ready:
 			context.job_queue.run_once(
 				delGameMessage, timedelta(days=1), context=player_id)
-			player_data['balance'] = database.updateBalance(player_id, slot.bet)
+			player_data['balance'] = database.updateBalance(player_id, slot.bet, 'refund')
 
 
 def delGameMessage(context):

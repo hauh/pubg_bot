@@ -1,137 +1,132 @@
 from logging import getLogger
-from os import getenv
-import random
 
 import psycopg2
-import psycopg2.extras
+from psycopg2.extras import RealDictCursor
+from psycopg2.sql import SQL, Identifier
 
-import queries as queries
+import queries
+from config import db_url
 
 ##############################
 
 logger = getLogger('db')
-db_url = getenv('HEROKU_DB')
 
 
-def withConnection(db_request):
+def withConnection(db_transaction):
 	def executeWithConnection(*args, **kwargs):
 		try:
-			connection = psycopg2.connect(db_url, sslmode='require')
-			cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+			with psycopg2.connect(db_url, sslmode='require') as conn:
+				with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+					return db_transaction(cursor, *args, **kwargs)
 		except Exception as err:
 			logger.critical(
-				"DB connection failed with:\n{} {}"
-					.format(type(err).__name__, err.args)
-			)
+				f"DB transaction failed with:\n{type(err).__name__} {err.args}")
 			raise
-		try:
-			result = db_request(cursor, *args, **kwargs)
-		except Exception as err:
-			logger.error(
-				"DB query failed with:\n{} {}"
-					.format(type(err).__name__, err.args)
-			)
-			raise
-		else:
-			connection.commit()
-			return result
 		finally:
-			cursor.close()
-			connection.close()
+			conn.close()
 	return executeWithConnection
 
 
 @withConnection
 def prepareDB(cursor):
-	for create_table in queries.tables:
-		cursor.execute(create_table)
+	for prepare in queries.init_db:
+		cursor.execute(prepare)
 	logger.info("Database ready!")
 
 
-@withConnection
-def getMatches(cursor, filters):
-	cursor.execute(queries.get_matches, filters)
-	return cursor.fetchall()
-
-
-@withConnection
-def getUser(cursor, user_id=None, username=None,
-			pubg_username=None, pubg_id=None):
-	cursor.execute(
-		queries.get_user,
-		{
-			'id': user_id, 'username': username,
-			'pubg_username': pubg_username, 'pubg_id': pubg_id
-		}
-	)
-	if cursor.rowcount != 1:
-		return cursor.fetchall()
-	return cursor.fetchone()
-
-
-def getPUBGUser(pubg_user_identifier):
-	user = getUser(pubg_username=pubg_user_identifier)
-	if not user:
-		try:
-			user = getUser(pubg_id=int(pubg_user_identifier))
-		except (ValueError, TypeError):
-			pass
-	return user
-
-
+# user
 @withConnection
 def saveUser(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
-	logger.info("New user {} has been registered".format(user_id))
+	if cursor.rowcount == 1:
+		logger.info(f"New user {user_id} has been registered")
 
 
 @withConnection
-def updateBalance(cursor, user_id, amount, transaction_id=None):
-	if not transaction_id:
-		transaction_id = random.randrange(1000000, 9999999)
-	cursor.execute(queries.save_transaction, (transaction_id, amount, user_id))
-	cursor.execute(queries.update_balance, (amount, user_id))
-	cursor.execute(
-		queries.get_user,
-		{'id': user_id, 'username': None, 'pubg_username': None, 'pubg_id': None}
+def getUser(cursor, **search_parameters):
+	get_user_query = SQL(queries.get_user)
+	if search_parameters:
+		get_user_query += SQL('WHERE') + SQL('AND').join(
+			[SQL('({} = %s)').format(Identifier(key))
+				for key in search_parameters.keys()]
 	)
-	logger.info(
-		f"Balance of user {user_id} has been changed for {amount} [{transaction_id}]")
-	return cursor.fetchone()['balance']
-
-
-@withConnection
-def updatePubgID(cursor, user_id, pubg_id):
-	cursor.execute(queries.update_pubg_id, (pubg_id, user_id,))
-	logger.info("User {} has set their PUBG ID to {}".format(user_id, pubg_id))
-
-
-@withConnection
-def updatePubgUsername(cursor, user_id, pubg_username):
-	cursor.execute(queries.update_pubg_username, (pubg_username, user_id,))
-	logger.info(
-		"User {} has set their PUBG username to {}".format(user_id, pubg_username))
-
-
-@withConnection
-def getBalanceHistory(cursor, user_id=None):
-	cursor.execute(queries.get_balance_history, {'user_id': user_id})
+	cursor.execute(get_user_query, tuple(search_parameters.values()))
+	if cursor.rowcount == 1:
+		return cursor.fetchone()
 	return cursor.fetchall()
 
 
 @withConnection
-def getAdmins(cursor):
-	cursor.execute(queries.get_admins)
-	return cursor.fetchall()
+def updateUser(cursor, user_id, column, new_value):
+	cursor.execute(
+		SQL(queries.update_user).format(Identifier(column)),
+		(new_value, user_id)
+	)
+	logger.info(f"User id {user_id} updated: '{column}' became {new_value}")
 
 
 @withConnection
-def updateAdmin(cursor, user_id, new_status):
-	cursor.execute(queries.update_admin, (new_status, user_id))
-	if cursor.rowcount == 0:
-		return False
-	if new_status:
-		logger.info("User {} became admin".format(user_id))
-	else:
-		logger.info("User {} is no longer admin".format(user_id))
-	return True
+def getBalance(cursor, user_id):
+	cursor.execute(queries.get_balance, (user_id,))
+	return cursor.fetchone()
+
+
+@withConnection
+def getBalanceHistory(cursor, user_id):
+	cursor.execute(queries.get_balance_history, (user_id,))
+	return cursor.fetchall()
+
+
+# matches
+@withConnection
+def createSlot(cursor, *slot_settings):
+	cursor.execute(queries.create_slot, slot_settings)
+	return cursor.fetchone()
+
+
+@withConnection
+def updateSlot(cursor, slot_id, **updated):
+	cursor.execute(
+		SQL(queries.update_slot).format(SQL(', ').join(
+			[SQL('{} = %s').format(Identifier(key)) for key in updated.keys()])),
+		tuple(updated.values())
+	)
+
+
+@withConnection
+def deleteSlot(cursor, slot_id):
+	cursor.execute(queries.delete_slot, (slot_id,))
+	logger.info(f"Slot id {slot_id} was canceled")
+
+
+@withConnection
+def joinSlot(cursor, slot_id, user_id):
+	cursor.execute(queries.join_slot, (slot_id, user_id))
+
+
+@withConnection
+def setPlayerResult(cursor, slot_id, user_id, result, value):
+	cursor.execute(
+		SQL(queries.set_player_results).format(Identifier(result)),
+		(value, slot_id, user_id)
+	)
+
+
+# balances
+@withConnection
+def changeBalance(cursor, user_id, amount, reason, slot_id=None):
+	cursor.execute(
+		queries.change_balance,
+		(user_id, amount, reason, slot_id)
+	)
+	cursor.execute(queries.get_balance, (user_id))
+	logger.info(f"Balance of user id {user_id} changed for {amount}: {reason}")
+	return cursor.fetchone()
+
+
+@withConnection
+def setTransactionID(cursor, user_id, amount, external_id):
+	cursor.execute(
+		queries.update_transaction_id,
+		(external_id, user_id, amount)
+	)

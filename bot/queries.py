@@ -1,95 +1,114 @@
-tables = (
+init_db = (
 	"""
 		SET timezone = 'Europe/Moscow'
 	""",
 	"""
-		CREATE TABLE IF NOT EXISTS matches (
-			id			SERIAL PRIMARY KEY,
-			mode		mode_t,
-			view		view_t,
-			bet			bet_t,
-			closed		BOOL DEFAULT false
+		CREATE TABLE IF NOT EXISTS users (
+			id				BIGINT PRIMARY KEY,
+			username		TEXT,
+			pubg_id			BIGINT,
+			pubg_username	TEXT,
+			admin			BOOL DEFAULT false,
+			banned			BOOL DEFAULT false
 		)
 	""",
 	"""
-		CREATE TABLE IF NOT EXISTS users (
-			id				INT PRIMARY KEY,
-			username		VARCHAR(32),
-			pubg_id			BIGINT,
-			pubg_username	VARCHAR(14),
-			balance			INT	DEFAULT 0,
-			admin			BOOL DEFAULT false
+		CREATE TABLE IF NOT EXISTS matches (
+			id			SERIAL PRIMARY KEY,
+			start_time	TIMESTAMPTZ,
+			type		TEXT NOT NULL,
+			mode		TEXT NOT NULL,
+			view		TEXT NOT NULL,
+			bet			INT NOT NULL,
+			pubg_id		BIGINT,
+			room_pass	TEXT,
+			finished	BOOL DEFAULT false
+		)
+	""",
+	"""
+		CREATE TABLE IF NOT EXISTS players_in_matches (
+			match_id	INT,
+			player_id	BIGINT,
+			place		INT,
+			kills		INT,
+			PRIMARY KEY (match_id, player_id),
+			FOREIGN KEY (match_id) REFERENCES matches (id) ON DELETE CASCADE
+			FOREIGN KEY (player_id) REFERENCES users (id),
 		)
 	""",
 	"""
 		CREATE TABLE IF NOT EXISTS transactions (
-			id			BIGINT PRIMARY KEY,
+			id			SERIAL,
 			amount		INT NOT NULL,
-			user_id		INT,
+			user_id		BIGINT NOT NULL,
+			reason		TEXT NOT NULL,
+			external_id	BIGINT,
+			match_id	INT,
 			date		TIMESTAMPTZ,
-			FOREIGN 	KEY (user_id) REFERENCES users (id)
+			FOREIGN KEY (user_id) REFERENCES users (id),
+			FOREIGN KEY (match_id) REFERENCES matches (id) ON DELETE CASCADE
 		)
 	""",
 )
 
-get_matches =\
-	"""
-		SELECT * FROM matches WHERE
-			closed = false
-			AND (%(mode)s is NULL OR mode = %(mode)s)
-			AND (%(view)s is NULL OR view = %(view)s)
-			AND (%(bet)s is NULL OR bet = %(bet)s)
-	"""
 
-get_user =\
-	"""
-		SELECT * FROM users WHERE
-			(%(id)s IS NULL OR id = %(id)s) AND
-			(%(username)s IS NULL OR username = %(username)s) AND
-			(%(pubg_username)s IS NULL OR pubg_username = %(pubg_username)s) AND
-			(%(pubg_id)s IS NULL OR pubg_id = %(pubg_id)s)
-	"""
-
+# users
 save_user =\
 	"""
 		INSERT INTO users (id, username) VALUES (%s, %s)
 			ON CONFLICT (id) DO UPDATE SET
 				username = EXCLUDED.username
 	"""
-
-update_balance =\
+get_user =\
 	"""
-		UPDATE users SET balance = balance + %s WHERE id = %s
+		SELECT * FROM users
 	"""
-
-save_transaction =\
+update_user =\
 	"""
-		INSERT INTO transactions (id, amount, user_id, date)
-			VALUES (%s, %s, %s, NOW())
+		UPDATE users SET {} = %s WHERE id = %s
 	"""
-
-update_pubg_id =\
+get_balance =\
 	"""
-		UPDATE users SET pubg_id = %s WHERE id = %s
+		SELECT SUM(amount) FROM transactions WHERE user_id = %s
 	"""
-
-update_pubg_username =\
-	"""
-		UPDATE users SET pubg_username = %s WHERE id = %s
-	"""
-
 get_balance_history =\
 	"""
-		SELECT * FROM transactions WHERE
-			(user_id = %(user_id)s OR %(user_id)s is NULL)
+		SELECT * FROM transactions WHERE user_id = %s
 	"""
 
-get_admins =\
+# games
+create_slot =\
 	"""
-		SELECT * FROM users WHERE admin = true
+		INSERT INTO matches (start_time, type, mode, view, bet)
+			VALUES (%s, %s, %s, %s, %s) RETURNING id
+	"""
+update_slot =\
+	"""
+		UPDATE matches SET {} WHERE id = %s
+	"""
+delete_slot =\
+	"""
+		DELETE FROM matches WHERE id = %s
+	"""
+join_slot =\
+	"""
+		INSERT INTO players_in_mathes (match_id, player_id) VALUES (%s, %s)
+	"""
+set_player_result =\
+	"""
+		UPDATE players_in_matches SET {} = %s
+			WHERE match_id = %s AND player_id = %s
 	"""
 
-update_admin =\
+# balances
+change_balance =\
 	"""
-		UPDATE users SET admin = %s WHERE id = %s
+		INSERT INTO transactions (user_id, amount, reason, match_id, date)
+			VALUES (%s, %s, %s, %s, NOW())
+	"""
+update_transaction_id =\
+	"""
+		UPDATE transactions SET external_id = %s
+			WHERE (user_id = %s) AND (amount = %s)
+			ORDER BY date DESC LIMIT 1
 	"""
