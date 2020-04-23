@@ -32,6 +32,12 @@ class MenuHandler(Handler):
 		return False
 
 	def handle_update(self, update, dispatcher, check_result, context):
+		if update.callback_query:
+			try:
+				update.callback_query.message.edit_reply_markup(reply_markup=InlineKeyboardMarkup([[]]))
+			except Exception:
+				pass
+
 		history = context.user_data.setdefault('history', [])
 		if not history:
 			next_state = 'main'

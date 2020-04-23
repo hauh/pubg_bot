@@ -5,6 +5,7 @@ from psycopg2.extras import RealDictCursor
 from psycopg2.sql import SQL, Identifier
 
 import queries
+import qiwi
 from config import db_url
 
 ##############################
@@ -38,8 +39,8 @@ def prepareDB(cursor):
 @withConnection
 def saveUser(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
-	if cursor.rowcount == 1:
-		logger.info(f"New user {user_id} has been registered")
+	logger.info(f"New user {user_id} has been registered")
+	return cursor.fetchone()
 
 
 @withConnection
@@ -57,18 +58,23 @@ def getUser(cursor, **search_parameters):
 
 
 @withConnection
-def updateUser(cursor, user_id, column, new_value):
-	cursor.execute(
-		SQL(queries.update_user).format(Identifier(column)),
-		(new_value, user_id)
-	)
-	logger.info(f"User id {user_id} updated: '{column}' became {new_value}")
+def updateUser(cursor, user_id, **new_values):
+	updated_rows = 0
+	for column, value in new_values.items():
+		cursor.execute(
+			SQL(queries.update_user).format(Identifier(column)),
+			{'value': value, 'id': user_id}
+		)
+		if cursor.rowcount:
+			updated_rows += 1
+			logger.info(f"User id {user_id} updated: {column} = {value}")
+	return updated_rows == len(new_values)
 
 
 @withConnection
 def getBalance(cursor, user_id):
 	cursor.execute(queries.get_balance, (user_id,))
-	return cursor.fetchone()
+	return cursor.fetchone()['balance']
 
 
 @withConnection
@@ -79,9 +85,9 @@ def getBalanceHistory(cursor, user_id):
 
 # matches
 @withConnection
-def createSlot(cursor, *slot_settings):
-	cursor.execute(queries.create_slot, slot_settings)
-	return cursor.fetchone()
+def createSlot(cursor, start_time):
+	cursor.execute(queries.create_slot, (start_time,))
+	return cursor.fetchone()['id']
 
 
 @withConnection
@@ -89,19 +95,33 @@ def updateSlot(cursor, slot_id, **updated):
 	cursor.execute(
 		SQL(queries.update_slot).format(SQL(', ').join(
 			[SQL('{} = %s').format(Identifier(key)) for key in updated.keys()])),
-		tuple(updated.values())
+		tuple(updated.values()) + (slot_id,)
 	)
 
 
 @withConnection
 def deleteSlot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
-	logger.info(f"Slot id {slot_id} was canceled")
+	if cursor.rowcount > 1:
+		logger.info(f"Slot id {slot_id} was canceled")
 
 
 @withConnection
-def joinSlot(cursor, slot_id, user_id):
+def joinSlot(cursor, slot_id, user_id, bet):
+	cursor.execute(queries.change_balance, (user_id, -bet, 'buy-in', slot_id, None))
 	cursor.execute(queries.join_slot, (slot_id, user_id))
+
+
+@withConnection
+def leaveSlot(cursor, slot_id, user_id):
+	cursor.execute(
+		SQL(queries.leave_slot).format(Identifier('players_in_matches')),
+		(slot_id, user_id)
+	)
+	cursor.execute(
+		SQL(queries.leave_slot).format(Identifier('transactions')),
+		(slot_id, user_id)
+	)
 
 
 @withConnection
@@ -114,19 +134,31 @@ def setPlayerResult(cursor, slot_id, user_id, result, value):
 
 # balances
 @withConnection
-def changeBalance(cursor, user_id, amount, reason, slot_id=None):
+def changeBalance(cursor, user_id, amount, reason, slot_id=None, external_id=None):
 	cursor.execute(
 		queries.change_balance,
-		(user_id, amount, reason, slot_id)
+		(user_id, amount, reason, slot_id, external_id)
 	)
-	cursor.execute(queries.get_balance, (user_id))
+	cursor.execute(queries.get_balance, (user_id,))
 	logger.info(f"Balance of user id {user_id} changed for {amount}: {reason}")
 	return cursor.fetchone()
 
 
 @withConnection
-def setTransactionID(cursor, user_id, amount, external_id):
+def withdrawMoney(cursor, user_id, **details):
+	cursor.execute(
+		queries.change_balance,
+		(user_id, details['amount'], 'withdraw', None, None)
+	)
+	if not (qiwi_id := qiwi.make_payment(**details)):
+		cursor.connection.rollback()
+		logger.error(f"Withdrawal for user id {user_id} failed")
+		return None
+	transaction_id = cursor.fetchone()
 	cursor.execute(
 		queries.update_transaction_id,
-		(external_id, user_id, amount)
+		(qiwi_id, transaction_id)
 	)
+	cursor.execute(queries.get_balance, (user_id,))
+	logger.error(f"User id {user_id} withdrew {details['amount']}")
+	return cursor.fetchone()

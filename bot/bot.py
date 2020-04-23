@@ -21,13 +21,20 @@ logger = getLogger('bot')
 
 def start(update, context, menu):
 	user_id = int(update.effective_user.id)
-	user = database.getUser(user_id)
-	if not user or user['username'] != update.effective_user.username:
-		database.saveUser(user_id, update.effective_user.username)
-		user = database.getUser(user_id)
+	username = update.effective_user.username
+	if not (user := database.getUser(id=user_id)):
+		user = database.saveUser(user_id, username)
+	elif user['username'] != username:
+		database.updateUser(user_id, username=username)
+	user['balance'] = database.getBalance(user_id)
 	context.user_data.update(user)
-	admin_button = 0 if user['admin'] or user_id in config.admin_id else 1
-	return (menu['msg'], menu['buttons'][admin_button:])
+	if user['banned']:
+		return (texts.banned, None)
+	return (
+		menu['msg'],
+		menu['buttons'] if user['admin'] or user_id in config.admin_id
+			else menu['buttons'][1:]
+	)
 
 
 def error(update, context):
