@@ -13,8 +13,8 @@ from config import db_url
 logger = getLogger('db')
 
 
-def withConnection(db_transaction):
-	def executeWithConnection(*args, **kwargs):
+def with_connection(db_transaction):
+	def execute_with_connection(*args, **kwargs):
 		try:
 			with psycopg2.connect(db_url, sslmode='require') as conn:
 				with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -25,40 +25,42 @@ def withConnection(db_transaction):
 			raise
 		finally:
 			conn.close()
-	return executeWithConnection
+	return execute_with_connection
+
+##############################
 
 
-@withConnection
-def prepareDB(cursor):
+@with_connection
+def prepare_DB(cursor):
 	for prepare in queries.init_db:
 		cursor.execute(prepare)
 	logger.info("Database ready!")
 
 
 # user
-@withConnection
-def saveUser(cursor, user_id, username):
+@with_connection
+def save_user(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
 	logger.info(f"New user {user_id} has been registered")
 	return cursor.fetchone()
 
 
-@withConnection
-def getUser(cursor, **search_parameters):
+@with_connection
+def get_user(cursor, **search_parameters):
 	get_user_query = SQL(queries.get_user)
 	if search_parameters:
 		get_user_query += SQL('WHERE') + SQL('AND').join(
 			[SQL('({} = %s)').format(Identifier(key))
 				for key in search_parameters.keys()]
-	)
+		)
 	cursor.execute(get_user_query, tuple(search_parameters.values()))
 	if cursor.rowcount == 1:
 		return cursor.fetchone()
 	return cursor.fetchall()
 
 
-@withConnection
-def updateUser(cursor, user_id, **new_values):
+@with_connection
+def update_user(cursor, user_id, **new_values):
 	updated_rows = 0
 	for column, value in new_values.items():
 		cursor.execute(
@@ -71,27 +73,27 @@ def updateUser(cursor, user_id, **new_values):
 	return updated_rows == len(new_values)
 
 
-@withConnection
-def getBalance(cursor, user_id):
+@with_connection
+def get_balance(cursor, user_id):
 	cursor.execute(queries.get_balance, (user_id,))
 	return cursor.fetchone()['balance']
 
 
-@withConnection
-def getBalanceHistory(cursor, user_id):
+@with_connection
+def get_balance_history(cursor, user_id):
 	cursor.execute(queries.get_balance_history, (user_id,))
 	return cursor.fetchall()
 
 
 # matches
-@withConnection
-def createSlot(cursor, start_time):
+@with_connection
+def create_slot(cursor, start_time):
 	cursor.execute(queries.create_slot, (start_time,))
 	return cursor.fetchone()['id']
 
 
-@withConnection
-def updateSlot(cursor, slot_id, **updated):
+@with_connection
+def update_slot(cursor, slot_id, **updated):
 	cursor.execute(
 		SQL(queries.update_slot).format(SQL(', ').join(
 			[SQL('{} = %s').format(Identifier(key)) for key in updated.keys()])),
@@ -99,21 +101,24 @@ def updateSlot(cursor, slot_id, **updated):
 	)
 
 
-@withConnection
-def deleteSlot(cursor, slot_id):
+@with_connection
+def delete_slot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
 	if cursor.rowcount > 1:
 		logger.info(f"Slot id {slot_id} was canceled")
 
 
-@withConnection
-def joinSlot(cursor, slot_id, user_id, bet):
-	cursor.execute(queries.change_balance, (user_id, -bet, 'buy-in', slot_id, None))
+@with_connection
+def join_slot(cursor, slot_id, user_id, bet):
+	cursor.execute(
+		queries.change_balance,
+		(user_id, -bet, 'buy-in', slot_id, None)
+	)
 	cursor.execute(queries.join_slot, (slot_id, user_id))
 
 
-@withConnection
-def leaveSlot(cursor, slot_id, user_id):
+@with_connection
+def leave_slot(cursor, slot_id, user_id):
 	cursor.execute(
 		SQL(queries.leave_slot).format(Identifier('players_in_matches')),
 		(slot_id, user_id)
@@ -124,8 +129,8 @@ def leaveSlot(cursor, slot_id, user_id):
 	)
 
 
-@withConnection
-def setPlayerResult(cursor, slot_id, user_id, result, value):
+@with_connection
+def set_player_result(cursor, slot_id, user_id, result, value):
 	cursor.execute(
 		SQL(queries.set_player_results).format(Identifier(result)),
 		(value, slot_id, user_id)
@@ -133,19 +138,19 @@ def setPlayerResult(cursor, slot_id, user_id, result, value):
 
 
 # balances
-@withConnection
-def changeBalance(cursor, user_id, amount, reason, slot_id=None, external_id=None):
+@with_connection
+def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 	cursor.execute(
 		queries.change_balance,
-		(user_id, amount, reason, slot_id, external_id)
+		(user_id, amount, reason, slot_id, ext_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
 	logger.info(f"Balance of user id {user_id} changed for {amount}: {reason}")
 	return cursor.fetchone()
 
 
-@withConnection
-def withdrawMoney(cursor, user_id, **details):
+@with_connection
+def withdraw_money(cursor, user_id, **details):
 	cursor.execute(
 		queries.change_balance,
 		(user_id, details['amount'], 'withdraw', None, None)

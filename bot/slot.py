@@ -9,7 +9,7 @@ import database
 
 class Slot:
 	def __init__(self, time):
-		self.slot_id = database.createSlot(time)
+		self.slot_id = database.create_slot(time)
 		self.time = time
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 		self.players = set()
@@ -64,12 +64,11 @@ class Slot:
 	def total_kills(self):
 		return sum(self.killers.values())
 
-
 	@property
 	def winners_are_set(self):
 		return (
-			(self.game_type == 'survival' and all(self.winners.values()))
-			or (self.game_type == 'kills' and self.total_kills == self.players_count - 1)
+			(self.game_type == 'kills' and self.total_kills == self.players_count - 1)
+			or (self.game_type == 'survival' and all(self.winners.values()))
 			or (self.game_type == 'mixed' and all(self.winners.values())
 				and self.total_kills == self.players_count - 1)
 		)
@@ -87,53 +86,54 @@ class Slot:
 
 	def join(self, user_id):
 		self.players.add(user_id)
-		database.joinSlot(self.slot_id, user_id, self.bet)
+		database.join_slot(self.slot_id, user_id, self.bet)
 
 	def leave(self, user_id):
 		self.players.discard(user_id)
-		database.leaveSlot(self.slot_id, user_id)
+		database.leave_slot(self.slot_id, user_id)
 		if not self.players:
 			self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 
 	def update_settings(self, settings):
 		settings['bet'] = int(settings['bet'])
 		self.settings.update(settings)
-		database.updateSlot(self.slot_id, **settings)
+		database.update_slot(self.slot_id, **settings)
 
 	def update_room(self, pubg_id, room_pass):
 		pubg_id = int(pubg_id)
 		self.pubg_id = pubg_id
 		self.room_pass = room_pass
-		database.updateSlot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
+		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 
 	def reward(self):
 		winners = set()
 		prize_structure = config.prize_structure[self.game_type]
 		prize_fund = self.prize_fund
 		if self.total_kills:
-			kill_price = round(prize_fund / 100.0 * prize_structure['kill'] / self.total_kills)
+			kill_price = round(
+				prize_fund / 100.0 * prize_structure['kill'] / self.total_kills)
 		else:
 			kill_price = 0
 		total_payout = 0
 		if self.game_type != 'kills':
 			for place, winner in self.winners.items():
 				if winner != texts.user_not_found:
-					database.setPlayerResult(self.slot_id, winner, 'place', place)
+					database.set_player_result(self.slot_id, winner, 'place', place)
 					percent = prize_structure[place]
 					kills = self.killers.pop(winner, 0)
 					prize = round(prize_fund / 100.0 * percent) + kills * kill_price
 					total_payout += prize
-					user = database.getUser(pubg_username=winner)
+					user = database.get_user(pubg_username=winner)
 					victory_message = texts.winner_place.format(place)
 					if kills:
 						victory_message += texts.kills_count.format(kills)
 					winners.add((user['id'], victory_message, prize))
 		if self.game_type != 'survival':
 			for killer, kills in self.killers.items():
-				database.setPlayerResult(self.slot_id, killer, 'kills', kills)
+				database.set_player_result(self.slot_id, killer, 'kills', kills)
 				prize = kills * kill_price
 				total_payout += prize
-				user = database.getUser(pubg_username=killer)
+				user = database.get_user(pubg_username=killer)
 				winners.add((user['id'], texts.kills_count.format(kills), prize))
-		database.updateSlot(self.slot_id, finished=True)
+		database.update_slot(self.slot_id, finished=True)
 		return winners, total_payout

@@ -1,92 +1,86 @@
 import re
 from logging import getLogger
 
-from telegram import InlineKeyboardButton
-
 import texts
-import config
 import database
+import utility
 
-#######################
+##############################
 
 logger = getLogger(__name__)
 admin_menu = texts.menu['next']['admin']
+manage_admins_menu = admin_menu['next']['manage_admins']
+manage_matches_menu = admin_menu['next']['manage_matches']
 
 
-def withAdminRights(admin_func):
-	def checkRights(update, context, menu=None):
-		if not context.user_data.get('admin')\
-			and update.effective_user.id not in config.admin_id:
+def with_admin_rights(admin_func):
+	def check_rights(update, context, *menu):
+		if not context.user_data.get('admin'):
 			return (None, None)
-		return admin_func(update, context, menu if menu else admin_func.__defaults__[0])
-	return checkRights
+		return admin_func(update, context, *menu)
+	return check_rights
 
 
-@withAdminRights
-def mainAdmin(update, context, menu=admin_menu):
+@with_admin_rights
+def admin_main(update, context, menu=admin_menu):
 	return (menu['msg'], menu['buttons'])
 
 
-@withAdminRights
-def addAdmin(update, context, menu):
-	if validated_input := context.user_data.pop('validated_input', None):
-		return switchAdmin(update, context, menu, validated_input, True)
+@with_admin_rights
+def add_admin(update, context, menu):
+	if admin_id := context.user_data.pop('validated_input', None):
+		return switch_admin(update, context, menu, int(admin_id), True)
 
 	user_input = context.user_data.pop('user_input', None)
-	if user := database.getUser(username=user_input):
-		message = menu['input']['msg_valid'].format(user['username'])
-		confirm_button = [InlineKeyboardButton(
-			texts.confirm, callback_data=f"confirm_{user['id']}")]
+	if user := database.get_user(username=user_input):
+		message = menu['answers']['found'].format(user['username'])
+		confirm_button = utility.confirmButton(user['id'])
 	else:
-		message = menu['input']['msg_error']
+		message = menu['answers']['not_found']
 		confirm_button = []
 	return (message, [confirm_button] + menu['buttons'])
 
 
-@withAdminRights
-def delAdmin(update, context, menu):
-	if validated_input := context.user_data.pop('validated_input', None):
-		return switchAdmin(update, context, menu, validated_input, False)
+@with_admin_rights
+def revoke_admin(update, context, menu):
+	if admin_id := context.user_data.pop('validated_input', None):
+		return switch_admin(update, context, menu, int(admin_id), False)
 
 	admins_buttons = []
 	admins_list = ""
-	for admin in database.getUser(admin=True):
-		admins_buttons.append([InlineKeyboardButton(
-			f"@{admin['username']}", callback_data=f"confirm_{admin['id']}")])
+	for admin in database.get_user(admin=True):
+		admins_buttons.append(utility.getButton(
+			f"@{admin['username']}", f"confirm_{admin['id']}"))
 		admins_list += f"@{admin['username']}\n"
 	return (menu['msg'].format(admins_list), admins_buttons + menu['buttons'])
 
 
-def switchAdmin(update, context, menu, admin_id, new_state):
-	database.updateUser(admin_id, admin=new_state)
+def switch_admin(update, context, menu, admin_id, new_state):
+	database.update_user(admin_id, admin=new_state)
 	context.dispatcher.user_data[admin_id]['admin'] = new_state
-	update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
+	update.callback_query.answer(menu['answers']['success'], show_alert=True)
 	del context.user_data['history'][-2:]
-	return mainAdmin(update, context)
+	return admin_main(update, context)
 
 
-@withAdminRights
-def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
+@with_admin_rights
+def manage_matches(update, context, menu=manage_matches_menu):
 	pending_games = context.bot_data.get('pending_games', [])
 	running_games = context.bot_data.get('running_games', [])
 
 	buttons = []
 	for slot in pending_games:
-		buttons.append([
-			InlineKeyboardButton(
-				menu['next']['set_game_id_']['btn_template'].format(
-					game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
-				callback_data=f"set_game_id_{slot.slot_id}"
-			)
-		])
+		buttons.append(utility.getButton(
+			menu['next']['set_game_id_']['btn_template'].format(
+				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
+			f"set_game_id_{slot.slot_id}"
+		))
 	for slot in running_games:
-		buttons.append([
-			InlineKeyboardButton(
-				menu['next']['set_winners_']['btn_template'].format(
-					game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
-				callback_data=f"set_winners_{slot.slot_id}"
-			)
-		])
+		buttons.append(utility.getButton(
+			menu['next']['set_winners_']['btn_template'].format(
+				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
+			f"set_winners_{slot.slot_id}"
+		))
 	return (
 		menu['msg'].format(
 			pending='\n'.join(str(game) for game in pending_games)
@@ -98,8 +92,8 @@ def manageMatches(update, context, menu=admin_menu['next']['manage_matches']):
 	)
 
 
-def withExistingGame(manage_match_func):
-	def checkGame(update, context, menu):
+def with_existing_game(manage_match_func):
+	def check_game(update, context, menu):
 		where = context.user_data['history'][-1]
 		if where.startswith('set_game_id'):
 			games = context.bot_data.get('pending_games', {})
@@ -114,19 +108,19 @@ def withExistingGame(manage_match_func):
 
 		update.callback_query.answer(texts.error, show_alert=True)
 		del context.user_data['history'][-1:]
-		return manageMatches(update, context)
-	return checkGame
+		return manage_matches(update, context)
+	return check_game
 
 
-@withAdminRights
-@withExistingGame
-def setGameID(update, context, menu, game):
+@with_admin_rights
+@with_existing_game
+def set_game_id(update, context, menu, game):
 	if validated_input := context.user_data.pop('validated_input', None):
 		game.update_room(*validated_input.split(','))
 		answer = menu['input']['msg_success']
 		update.callback_query.answer(answer, show_alert=True)
 		del context.user_data['history'][-1:]
-		return manageMatches(update, context)
+		return manage_matches(update, context)
 
 	confirm_button = []
 	if not (user_input := context.user_data.pop('user_input', None)):
@@ -138,41 +132,37 @@ def setGameID(update, context, menu, game):
 		except ValueError:
 			message = menu['input']['msg_error']
 		else:
-			confirm_button = [InlineKeyboardButton(
-				texts.confirm, callback_data=f'confirm_{pubg_id},{room_pass}')]
+			confirm_button = utility.confirmButton(f'{pubg_id},{room_pass}')
 			message = menu['input']['msg_valid'].format(
 				game=str(game), pubg_id=pubg_id, room_pass=room_pass)
 	return (message, [confirm_button] + menu['buttons'])
 
 
-@withAdminRights
-@withExistingGame
-def setWinners(update, context, menu, game):
+@with_admin_rights
+@with_existing_game
+def set_winners(update, context, menu, game):
 	if all_winner_set := context.user_data.pop('validated_input', None):
 		update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
 		del context.user_data['history'][-1]
-		distributePrizes(context, game)
-		return manageMatches(update, context)
+		distribute_prizes(context, game)
+		return manage_matches(update, context)
 
 	games_buttons = []
 	if game.winners_are_set:
-		games_buttons.append(
-			[InlineKeyboardButton(texts.confirm, callback_data='confirm_winners')])
+		games_buttons.append(utility.confirmButton('winners'))
 	winners = ""
 	if game.game_type != 'kills':
 		for place, winner in game.winners.items():
 			winner_description = menu['next']['place_']['btn_template'].format(
 				place=place, username=winner)
-			games_buttons.append([InlineKeyboardButton(
-				winner_description,
-				callback_data=f"place_{game.slot_id}_{place}"
-			)])
+			games_buttons.append(utility.getButton(
+				winner_description, f"place_{game.slot_id}_{place}"))
 			winners += winner_description
 	if game.game_type != 'survival':
-		games_buttons.append([InlineKeyboardButton(
+		games_buttons.append(utility.getButton(
 			menu['next']['set_killers_']['btn_template'],
-			callback_data=f"set_killers_{game.slot_id}"
-		)])
+			f"set_killers_{game.slot_id}"
+		))
 	return (
 		menu['msg'].format(
 			game=str(game),
@@ -184,8 +174,8 @@ def setWinners(update, context, menu, game):
 	)
 
 
-@withAdminRights
-def setEachWinner(update, context, menu):
+@with_admin_rights
+def set_each_winner(update, context, menu):
 	game_cb_data = update.callback_query.data.lstrip('place_').split('_')
 	game_id = int(game_cb_data[0])
 	place = int(game_cb_data[1])
@@ -195,9 +185,9 @@ def setEachWinner(update, context, menu):
 	running_games = context.bot_data.get('running_games', {})
 	for game in running_games:
 		if game.slot_id == game_id:
-			if not (user := database.getUser(pubg_username=user_input)):
+			if not (user := database.get_user(pubg_username=user_input)):
 				try:
-					user = database.getUser(pubg_id=int(user_input))
+					user = database.get_user(pubg_id=int(user_input))
 				except (TypeError, ValueError):
 					pass
 			if not user:
@@ -206,18 +196,18 @@ def setEachWinner(update, context, menu):
 
 			game.winners[place] = user['pubg_username']
 			del context.user_data['history'][-1:]
-			return setWinners(
+			return set_winners(
 				update, context,
 				admin_menu['next']['manage_matches']['next']['set_winners_']
 			)
 
 	del context.user_data['history'][-1:]
-	return manageMatches(update, context)
+	return manage_matches(update, context)
 
 
-@withAdminRights
-@withExistingGame
-def setKillers(update, context, menu, game):
+@with_admin_rights
+@with_existing_game
+def set_killers(update, context, menu, game):
 	user_input = context.user_data.pop('user_input', None)
 	error_message = None
 	if user_input:
@@ -225,9 +215,9 @@ def setKillers(update, context, menu, game):
 			error_message = menu['input']['msg_error']
 		else:
 			username, score = user_input.split(',')
-			if not (user := database.getUser(pubg_username=username)):
+			if not (user := database.get_user(pubg_username=username)):
 				try:
-					user = database.getUser(pubg_id=int(username))
+					user = database.get_user(pubg_id=int(username))
 				except (TypeError, ValueError):
 					pass
 			if not user:
@@ -253,7 +243,7 @@ def setKillers(update, context, menu, game):
 	)
 
 
-def distributePrizes(context, game):
+def distribute_prizes(context, game):
 	for player_id in game.players:
 		player_data = context.dispatcher.user_data.get(player_id)
 		try:
@@ -263,7 +253,7 @@ def distributePrizes(context, game):
 	winners, total_payouts = game.reward()
 	for winner_id, victory_message, prize in winners:
 		winner_data = context.dispatcher.user_data.get(winner_id)
-		winner_data['balance'] = database.changeBalance(
+		winner_data['balance'] = database.change_balance(
 			winner_id, prize, 'prize', game.slot_id)
 		winner_data['game_message'] = context.bot.send_message(
 			winner_id,
@@ -271,8 +261,8 @@ def distributePrizes(context, game):
 				game=str(game), victory_message=victory_message, prize=prize)
 		)
 	logger.info(f"Game ended, winners are, payout: {total_payouts}")
-	context.bot.send_message(
-		config.admin_group_id,
+	utility.messageAdmins(
+		context.bot,
 		texts.match_has_ended.format(
 			game=str(game),
 			pubg_id=game.pubg_id,
@@ -283,29 +273,27 @@ def distributePrizes(context, game):
 	context.bot_data.get('running_games', set()).discard(game)
 
 
-@withAdminRights
+@with_admin_rights
 def mailing(update, context, menu):
 	if confirm_spam := context.user_data.pop('validated_input', None):
-		users = database.getUser()
+		users = database.get_user(admin=False)
 		for delay, user in enumerate(users):
 			context.job_queue.run_once(
 				spam, delay * 0.1,
-				context=(user['id'], context.bot_data.get('spam_message'))
+				context=(user['id'], context.bot_data.pop('spam_message'))
 			)
 		update.callback_query.answer(menu['input']['msg_success'])
-		return mainAdmin(update, context)
-	
+		return admin_main(update, context)
+
 	if user_input := context.user_data.pop('user_input', None):
 		context.bot_data['spam_message'] = user_input
-		confirm_button = [InlineKeyboardButton(
-			texts.confirm, callback_data='confirm_spam')]
 		return (
 			menu['input']['msg_valid'].format(user_input),
-			[confirm_button] + menu['buttons']
+			[utility.confirmButton('spam')] + menu['buttons']
 		)
 
 	return (menu['msg'], menu['buttons'])
-	
+
 
 def spam(context):
 	user_id, spam_message = context.job.context
@@ -314,3 +302,18 @@ def spam(context):
 	except Exception as err:
 		logger.error('Sending message to {} failed because: {}, {}'.format(
 			user_id, type(err).__name__, err.args))
+
+
+##############################
+
+admin_menu['callback'] = admin_main
+admin_menu['next']['mailing']['callback'] = mailing
+
+manage_admins_menu['next']['add_admin']['callback'] = add_admin
+manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
+
+manage_matches_menu['callback'] = manage_matches
+manage_matches_menu['next']['set_game_id_']['callback'] = set_game_id
+manage_matches_menu['next']['set_winners_']['callback'] = set_winners
+manage_matches_menu['next']['set_winners_']['next']['place_']['callback'] = set_each_winner
+manage_matches_menu['next']['set_winners_']['next']['set_killers_']['callback'] = set_killers

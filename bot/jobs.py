@@ -46,11 +46,11 @@ def manageSlot(slot, context):
 		delay = slot.time - datetime.now(config.timezone) - timedelta(minutes=config.times['send_room'])
 		context.job_queue.run_once(startGame, delay, context=slot)
 	else:
-		database.deleteSlot(slot.slot_id)
+		database.delete_slot(slot.slot_id)
 	for player_id in slot.players:
 		player_data = context.dispatcher.user_data.get(player_id)
 		if not ready:
-			player_data['balance'] = database.getBalance(player_id)
+			player_data['balance'] = database.get_balance(player_id)
 			msg = texts.match_didnt_happen.format(str(slot))
 			context.job_queue.run_once(
 				delGameMessage, timedelta(hours=3), context=player_id)
@@ -78,7 +78,7 @@ def startGame(context):
 			"because no room for it was created!"
 		)
 		msg = texts.match_didnt_happen.format(str(slot))
-		database.deleteSlot(slot.slot_id)
+		database.delete_slot(slot.slot_id)
 	for player_id in slot.players:
 		player_data = context.dispatcher.user_data.get(player_id)
 		player_data['game_message'].delete()
@@ -86,7 +86,7 @@ def startGame(context):
 		if not ready:
 			context.job_queue.run_once(
 				delGameMessage, timedelta(hours=3), context=player_id)
-			player_data['balance'] = database.getBalance(player_id)
+			player_data['balance'] = database.get_balance(player_id)
 
 
 def delGameMessage(context):

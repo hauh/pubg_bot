@@ -1,20 +1,18 @@
 from logging import getLogger
 
-from telegram import InlineKeyboardButton
-
 import texts
-import database
+from utility import confirmButton
 
-#######################
+##############################
 
 logger = getLogger(__name__)
 matches_menu = texts.menu['next']['matches']
 
 
-def mainMatches(update, context, menu=matches_menu):
-	if not context.user_data.get('pubg_id')\
-		or not context.user_data.get('pubg_username'):
-		update.callback_query.answer(texts.pubg_is_not_set)
+def matches_main(update, context, menu=matches_menu):
+	if (not context.user_data.get('pubg_id')
+	or not context.user_data.get('pubg_username')):
+		update.callback_query.answer(menu['answers']['pubg_required'])
 		del context.user_data['history'][-1]
 		return (None, None)
 
@@ -35,61 +33,67 @@ def mainMatches(update, context, menu=matches_menu):
 	)
 
 
-def slotMenu(update, context, menu):
-	def findSlot():
-		picked_slot_id = int(context.user_data['history'][-1].lstrip('slot_'))
+def pick_slot(update, context, menu):
+	def done(answer):
+		update.callback_query.answer(menu['answers'][answer], show_alert=True)
+		del context.user_data['history'][-1]
+		return matches_main(update, context)
+
+	def find_slot():
+		slot_id = int(context.user_data['history'][-1].lstrip('slot_'))
 		for slot in context.bot_data['slots']:
-			if slot.slot_id == picked_slot_id:
+			if slot.slot_id == slot_id:
 				return slot
 		return None
 
-	slot = findSlot()
-	if validated_input := context.user_data.pop('validated_input', None):
-		settings = context.user_data.pop('slot_settings')
-		if slot and all(settings.values()):
+	if not (slot := find_slot()):
+		return done('not_found')
+
+	# setup slot if confirmed
+	if context.user_data.pop('validated_input', None):
+		settings = context.user_data.pop('slot_settings', None)
+		if slot.is_set:
+			return done('already_set')
+		elif settings and all(settings.values()):
 			slot.update_settings(settings)
 			logger.info(f"Slot id {slot.slot_id}: {str(slot)} was set up")
 
-	# not found
-	if not slot:
-		answer = texts.match_not_found
 	# leave if already joined
-	elif slot in context.user_data['picked_slots']:
+	if slot in context.user_data['picked_slots']:
 		context.user_data['picked_slots'].remove(slot)
 		bet = slot.bet
 		slot.leave(update.effective_user.id)
 		context.user_data['balance'] += bet
-		answer = texts.left_from_match
-	# maximum joined
-	elif len(context.user_data['picked_slots']) >= 3:
-		answer = texts.maximum_matches
+		return done('left')
+
+	# maximum 3 slots
+	if len(context.user_data['picked_slots']) >= 3:
+		return done('maximum')
+
 	# setup first
-	elif not slot.is_set:
-		return setupSlot(update, context, menu)
+	if not slot.is_set:
+		return setup_slot(update, context)
+
 	# slot is full
-	elif slot.is_full:
-		answer = texts.is_full_slot
+	if slot.is_full:
+		return done('full')
+
 	# not enough money
-	elif context.user_data['balance'] < slot.bet:
-		answer = texts.insufficient_funds
+	if context.user_data['balance'] < slot.bet:
+		return done('expensive')
+
 	# finally you can join
-	else:
-		context.user_data['balance'] -= slot.bet
-		slot.join(update.effective_user.id)
-		context.user_data['picked_slots'].add(slot)
-		answer = texts.match_is_chosen
-
-	update.callback_query.answer(answer, show_alert=True)
-	del context.user_data['history'][-1]
-	return mainMatches(update, context)
+	context.user_data['balance'] -= slot.bet
+	slot.join(update.effective_user.id)
+	context.user_data['picked_slots'].add(slot)
+	return done('joined')
 
 
-def setupSlot(update, context, menu):
+def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 	settings = context.user_data.setdefault(
 		'slot_settings', dict.fromkeys(['type', 'mode', 'view', 'bet'], None))
 	if all(settings.values()):
-		confirm_button = [InlineKeyboardButton(
-			texts.confirm, callback_data='confirm_slot_setup')]
+		confirm_button = confirmButton('slot_setup')
 	else:
 		confirm_button = []
 	return (
@@ -98,16 +102,24 @@ def setupSlot(update, context, menu):
 			**{
 				setting: menu['next'][setting]['next'][chosen_value]['btn']
 					if chosen_value else menu['default']
-						for setting, chosen_value in settings.items()
+					for setting, chosen_value in settings.items()
 			}
 		),
 		[confirm_button] + menu['buttons']
 	)
 
 
-def getSlotSetting(update, context, menu):
+def get_slot_setting(update, context, menu):
 	setting = context.user_data['history'][-2]
 	context.user_data['slot_settings'][setting] = update.callback_query.data
 	del context.user_data['history'][-2:]
-	return setupSlot(
-		update, context, texts.menu['next']['matches']['next']['slot_'])
+	return setup_slot(update, context)
+
+
+##############################
+
+matches_menu['callback'] = matches_main
+matches_menu['next']['slot_']['callback'] = pick_slot
+for setting_menu in matches_menu['next']['slot_']['next'].values():
+	for setting_choice in setting_menu['next'].values():
+		setting_choice['callback'] = get_slot_setting
