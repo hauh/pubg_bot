@@ -34,7 +34,8 @@ class MenuHandler(Handler):
 	def handle_update(self, update, dispatcher, check_result, context):
 		if update.callback_query:
 			try:
-				update.callback_query.message.edit_reply_markup(reply_markup=InlineKeyboardMarkup([[]]))
+				update.callback_query.message.edit_reply_markup(
+					reply_markup=InlineKeyboardMarkup([[]]))
 			except Exception:
 				pass
 

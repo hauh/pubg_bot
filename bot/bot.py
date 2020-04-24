@@ -1,18 +1,15 @@
 import sys
 from logging import getLogger
 
-from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ParseMode, InlineKeyboardMarkup
 from telegram.ext import Defaults, Updater, Filters, CallbackQueryHandler
 
 import config
 import database
 import texts
 import jobs
+import utility
 from menu_handler import MenuHandler
-
-import admin
-import matches
-import profile
 
 ########################
 
@@ -51,27 +48,6 @@ def error(update, context):
 			update.effective_chat.send_message(texts.error))
 
 
-def updateMenuWithButtons():
-	def generateButtons(menu, depth=0):
-		buttons = []
-		if 'next' in menu:
-			for button_key, button_data in menu['next'].items():
-				if 'btn' in button_data:
-					buttons.append([InlineKeyboardButton(
-						button_data['btn'], callback_data=button_key)])
-				generateButtons(button_data, depth + 1)
-		if depth > 1:
-			buttons.append(back_button + main_button)
-		elif depth:
-			buttons.append(back_button)
-		menu['buttons'] = buttons
-
-	back_button = [InlineKeyboardButton(texts.back, callback_data='back')]
-	main_button = [InlineKeyboardButton(texts.main, callback_data='main')]
-	generateButtons(texts.menu)
-	texts.menu['buttons'][5][0].url = config.battle_chat
-
-
 def gotoAdmin(update, context):
 	text, buttons = admin.manageMatches(
 		update, context, texts.menu['next']['admin']['next']['manage_matches'])
@@ -92,7 +68,7 @@ def main():
 		logger.critical("Database required!")
 		sys.exit(-1)
 
-	updateMenuWithButtons()
+	utility.add_buttons_to_menu()
 	texts.menu['callback'] = start
 
 	updateMenuWithCallbacks()

@@ -1,6 +1,5 @@
 import re
 import random
-from logging import getLogger
 
 from telegram import ChatAction
 
@@ -11,7 +10,6 @@ import utility
 
 ##############################
 
-logger = getLogger(__name__)
 profile_menu = texts.menu['next']['profile']
 add_funds_menu = profile_menu['next']['add_funds']
 withdraw_money_menu = profile_menu['next']['withdraw_money']
@@ -66,7 +64,7 @@ def with_input(setter):
 
 		return (
 			menu['answers']['confirm'].format(user_input),
-			[utility.confirmButton(user_input)] + menu['buttons']
+			[utility.create_button(user_input)] + menu['buttons']
 		)
 	return handle_input
 
@@ -142,7 +140,7 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 	if not context.user_data.pop('validated_input', None):
 		return (
 			message + menu['answers']['commission'].format(commission, total),
-			[utility.confirmButton('withdraw')] + menu['buttons']
+			[utility.create_button('withdraw')] + menu['buttons']
 		)
 
 	user_id = update.effective_user.id

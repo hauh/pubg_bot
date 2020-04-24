@@ -1,11 +1,8 @@
-from logging import getLogger
-
 import texts
-from utility import confirmButton
+import utility
 
 ##############################
 
-logger = getLogger(__name__)
 matches_menu = texts.menu['next']['matches']
 
 
@@ -56,7 +53,6 @@ def pick_slot(update, context, menu):
 			return done('already_set')
 		elif settings and all(settings.values()):
 			slot.update_settings(settings)
-			logger.info(f"Slot id {slot.slot_id}: {str(slot)} was set up")
 
 	# leave if already joined
 	if slot in context.user_data['picked_slots']:
@@ -93,7 +89,7 @@ def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 	settings = context.user_data.setdefault(
 		'slot_settings', dict.fromkeys(['type', 'mode', 'view', 'bet'], None))
 	if all(settings.values()):
-		confirm_button = confirmButton('slot_setup')
+		confirm_button = utility.create_button('slot_setup')
 	else:
 		confirm_button = []
 	return (

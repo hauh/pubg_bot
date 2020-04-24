@@ -34,7 +34,7 @@ def add_admin(update, context, menu):
 	user_input = context.user_data.pop('user_input', None)
 	if user := database.get_user(username=user_input):
 		message = menu['answers']['found'].format(user['username'])
-		confirm_button = utility.confirmButton(user['id'])
+		confirm_button = utility.create_button(user['id'])
 	else:
 		message = menu['answers']['not_found']
 		confirm_button = []
@@ -49,7 +49,7 @@ def revoke_admin(update, context, menu):
 	admins_buttons = []
 	admins_list = ""
 	for admin in database.get_user(admin=True):
-		admins_buttons.append(utility.getButton(
+		admins_buttons.append(utility.create_button(
 			f"@{admin['username']}", f"confirm_{admin['id']}"))
 		admins_list += f"@{admin['username']}\n"
 	return (menu['msg'].format(admins_list), admins_buttons + menu['buttons'])
@@ -70,13 +70,13 @@ def manage_matches(update, context, menu=manage_matches_menu):
 
 	buttons = []
 	for slot in pending_games:
-		buttons.append(utility.getButton(
+		buttons.append(utility.create_button(
 			menu['next']['set_game_id_']['btn_template'].format(
 				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
 			f"set_game_id_{slot.slot_id}"
 		))
 	for slot in running_games:
-		buttons.append(utility.getButton(
+		buttons.append(utility.create_button(
 			menu['next']['set_winners_']['btn_template'].format(
 				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
 			f"set_winners_{slot.slot_id}"
@@ -132,7 +132,7 @@ def set_game_id(update, context, menu, game):
 		except ValueError:
 			message = menu['input']['msg_error']
 		else:
-			confirm_button = utility.confirmButton(f'{pubg_id},{room_pass}')
+			confirm_button = utility.confirm_button(f'{pubg_id},{room_pass}')
 			message = menu['input']['msg_valid'].format(
 				game=str(game), pubg_id=pubg_id, room_pass=room_pass)
 	return (message, [confirm_button] + menu['buttons'])
@@ -149,17 +149,17 @@ def set_winners(update, context, menu, game):
 
 	games_buttons = []
 	if game.winners_are_set:
-		games_buttons.append(utility.confirmButton('winners'))
+		games_buttons.append(utility.confirm_button('winners'))
 	winners = ""
 	if game.game_type != 'kills':
 		for place, winner in game.winners.items():
 			winner_description = menu['next']['place_']['btn_template'].format(
 				place=place, username=winner)
-			games_buttons.append(utility.getButton(
+			games_buttons.append(utility.create_button(
 				winner_description, f"place_{game.slot_id}_{place}"))
 			winners += winner_description
 	if game.game_type != 'survival':
-		games_buttons.append(utility.getButton(
+		games_buttons.append(utility.create_button(
 			menu['next']['set_killers_']['btn_template'],
 			f"set_killers_{game.slot_id}"
 		))
@@ -285,7 +285,7 @@ def mailing(update, context, menu):
 		context.bot_data['spam_message'] = user_input
 		return (
 			menu['input']['msg_valid'].format(user_input),
-			[utility.confirmButton('spam')] + menu['buttons']
+			[utility.confirm_button('spam')] + menu['buttons']
 		)
 
 	return (menu['msg'], menu['buttons'])
