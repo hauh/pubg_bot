@@ -261,14 +261,10 @@ def distribute_prizes(context, game):
 				game=str(game), victory_message=victory_message, prize=prize)
 		)
 	logger.info(f"Game ended, winners are, payout: {total_payouts}")
-	utility.messageAdmins(
-		context.bot,
-		texts.match_has_ended.format(
-			game=str(game),
-			pubg_id=game.pubg_id,
-			total_bets=game.prize_fund,
-			prizes=total_payouts
-		)
+	utility.message_admins(
+		context.bot, 'prizes',
+		game=str(game), pubg_id=game.pubg_id,
+		total_bets=game.prize_fund, prizes=total_payouts
 	)
 	context.bot_data.get('running_games', set()).discard(game)
 

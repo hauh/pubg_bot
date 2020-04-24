@@ -4,7 +4,6 @@ from logging import getLogger
 
 from telegram import ChatAction
 
-import config
 import texts
 import database
 import qiwi
@@ -46,119 +45,137 @@ def balance_history(update, context, menu):
 	return (message, menu['buttons'])
 
 
-def with_input(setter_func):
-	def check_input(update, context, menu):
+def with_input(setter):
+	def handle_input(update, context, menu):
+		# if input validated and confirmed set and return back
 		if validated_input := context.user_data.pop('validated_input', None):
-			if setter_func(update, context, menu, validated_input, validated=True):
-				if 'msg_success' in menu['input']:
-					update.callback_query.answer(
-						menu['input']['msg_success'], show_alert=True)
-			elif 'msg_fail' in menu['input']:
-				update.callback_query.answer(
-					menu['input']['msg_fail'], show_alert=True)
-			context.user_data['history'].pop()
-			prev = context.user_data['history'][-1]
-			prev_menu = profile_menu['next'][prev]\
-				if prev in profile_menu['next'] else profile_menu
-			return prev_menu['callback'](update, context)
+			answer, back = setter(update, context, validated_input, validated=True)
+			if answer:
+				update.callback_query.answer(menu['answers'][answer], show_alert=True)
+			if back:
+				del context.user_data['history'][-1]
+				return back(update, context)
 
+		# if no input say what to do here
 		if not (user_input := context.user_data.pop('user_input', None)):
 			return (menu['msg'], menu['buttons'])
 
-		if not setter_func(update, context, menu, user_input, validated=False):
-			return (menu['input']['msg_error'], menu['buttons'])
+		# validate first if there is input
+		if not setter(update, context, menu, user_input, validated=False):
+			return (menu['answers']['invalid'], menu['buttons'])
 
 		return (
-			menu['input']['msg_valid'].format(user_input),
+			menu['answers']['confirm'].format(user_input),
 			[utility.confirmButton(user_input)] + menu['buttons']
 		)
-	return check_input
+	return handle_input
 
 
 @with_input
-def set_pubg_username(update, context, menu, user_input, validated):
+def set_pubg_username(update, context, user_input, validated):
 	if not validated:
 		return len(user_input) <= 14
 
-	if not database.update_user(update.effective_user.id, pubg_username=user_input):
-		return False
+	if not database.update_user(update.effective_user.id, pubg_username=user_input):  # noqa
+		return 'duplicate', None
+
 	context.user_data['pubg_username'] = user_input
-	return True
+	return 'success', profile_main
 
 
 @with_input
-def set_pubg_id(update, context, menu, user_input, validated):
+def set_pubg_id(update, context, user_input, validated):
 	if not validated:
 		return re.match(r'^[0-9]{8,10}$', user_input)
 
 	pubg_id = int(user_input)
 	if not database.update_user(update.effective_user.id, pubg_id=pubg_id):
-		return False
+		return 'duplicate', None
+
 	context.user_data['pubg_id'] = pubg_id
-	return True
+	return 'success', profile_main
 
 
 def add_funds(update, context, menu=add_funds_menu):
 	payment_code = context.user_data.setdefault(
 		'payment_code', str(random.randint(100000, 999999)))
-	return (
-		menu['msg'].format(
-			qiwi_phone=config.qiwi_phone,
-			payment_code=payment_code
-		),
-		menu['buttons']
-	)
+	return (menu['msg'].format(payment_code), menu['buttons'])
 
 
 def check_payment(update, context, menu):
 	update.effective_chat.send_action(ChatAction.TYPING)
-	if payment := qiwi.check_history(context.user_data['payment_code']):
-		amount, qiwi_id = payment
-		context.user_data['balance'] = database.change_balance(
-			update.effective_user.id, amount,
-			'income_qiwi', external_id=qiwi_id
-		)
-		answer_msg = menu['input']['msg_success'].format(amount)
-		del context.user_data['payment_code']
-	else:
-		answer_msg = menu['input']['msg_error']
-	update.callback_query.answer(answer_msg, show_alert=True)
+	if not (payment := qiwi.check_history(context.user_data['payment_code'])):
+		update.callback_query.answer(menu['answers']['nothing'], show_alert=True)
+		del context.user_data['history'][-1]
+		return add_funds(update, context)
+
+	amount, qiwi_id = payment
+	context.user_data['balance'] = database.change_balance(
+		update.effective_user.id, amount, 'income_qiwi', external_id=qiwi_id)
+	update.callback_query.answer(
+		menu['answers']['success'].format(amount), show_alert=True)
+	del context.user_data['payment_code']
 	del context.user_data['history'][-2:]
-	return add_funds(update, context)
+	return profile_main(update, context)
 
 
 def withdraw_money(update, context, menu=withdraw_money_menu):
 	update.effective_chat.send_action(ChatAction.TYPING)
 	details = context.user_data.setdefault(
 		'withdraw_details', dict.fromkeys(['provider', 'account', 'amount']))
-	confirm_button, commission_warning = [], ""
-	if all(details.values()):
-		if context.user_data.pop('validated_input', None) == 'withdraw':
-			doWithdraw(update, context, menu, details)
-		elif not (commission := qiwi.check_commission(**details)):
-			callback_query.answer(menu['input']['msg_fail'], show_alert=True)
-		else:
-			confirm_button = utility.confirmButton('withdraw')
-			commission_warning = menu['input']['msg_valid'].format(
-				commission, details['amount'] + commission)
-	return (
-		menu['msg'].format(
-			balance=context.user_data['balance'],
-			**{key: value or menu['default'] for key, value in details.items()}
-		) + commission_warning,
-		[confirm_button] + menu['buttons']
+	message = menu['msg'].format(
+		balance=context.user_data['balance'],
+		**{key: value or menu['default'] for key, value in details.items()}
 	)
+	# set all withdraw details first
+	if not all(details.values()):
+		return (message, menu['buttons'])
+
+	# checking commission
+	if (commission := qiwi.check_commission(**details)) is None:
+		update.callback_query.answer(menu['answers']['error'], show_alert=True)
+		return (message, menu['buttons'])
+
+	total = details['amount'] + commission
+
+	# confirm first
+	if not context.user_data.pop('validated_input', None):
+		return (
+			message + menu['answers']['commission'].format(commission, total),
+			[utility.confirmButton('withdraw')] + menu['buttons']
+		)
+
+	user_id = update.effective_user.id
+
+	# not enough money
+	if (context.user_data['balance'] := database.get_balance(user_id)) < total:
+		del context.user_data['withdraw_details']['amount']
+		update.callback_query.answer(menu['answers']['too_much'], show_alert=True)
+		return (message, menu['buttons'])
+
+	# money withdrawn
+	if (new_balance := database.withdraw_money(user_id, **details)) is not None:
+		context.user_data['balance'] = new_balance
+		update.callback_query.answer(menu['answers']['success'], show_alert=True)
+
+	# withdraw failed
+	else:
+		utility.message_admins(context.bot, 'qiwi_failed')
+		update.callback_query.answer(menu['answers']['error'], show_alert=True)
+
+	del context.user_data['withdraw_details']['amount']
+	del context.user_data['history'][-1]
+	return profile_main(update, context)
 
 
 def get_withdraw_provider(update, context, menu):
-	if details := context.user_data.get('withdraw_details'):
-		details['provider'] = update.callback_query.data
+	context.user_data['withdraw_details']['provider'] = update.callback_query.data
 	del context.user_data['history'][-2:]
 	return withdraw_money(update, context)
 
 
 @with_input
-def get_withdraw_account(update, context, menu, user_input, validated):
+def get_withdraw_account(update, context, user_input, validated):
 	details = context.user_data.get('withdraw_details', {})
 	if not validated:
 		match_qiwi = re.match(r'^7[0-9]{10}$', user_input)
@@ -170,47 +187,20 @@ def get_withdraw_account(update, context, menu, user_input, validated):
 			return match_card
 		return match_qiwi or match_card
 
-	if not details:
-		return False
 	details['account'] = user_input
-	return True
+	return None, withdraw_money
 
 
 @with_input
-def get_withdraw_amount(update, context, menu, user_input, validated):
+def get_withdraw_amount(update, context, user_input, validated):
 	if not validated:
 		return re.match(r'^[1-9][0-9]{1,4}$', user_input)
 
-	if not (details := context.user_data.get('withdraw_details')):
-		return False
 	if (amount := int(user_input)) > context.user_data['balance']:
-		return False
+		return 'too_much', None
 
-	details['amount'] = amount
-	return True
-
-
-def doWithdraw(update, context, menu, details):
-	user_id = int(update.effective_user.id)
-	answer_msg = None
-	if commission := qiwi.check_commission(**details):
-		amount = details['amount'] + commission
-		context.user_data['balance'] = database.get_user(user_id)['balance']
-		if context.user_data['balance'] < amount:
-			answer_msg = menu['input']['msg_fail']
-		elif (new_balance := database.withdraw_money(user_id, **details)) is not None:
-			answer_msg = menu['input']['msg_success']
-			context.user_data['balance'] = new_balance
-		else:
-			answer_msg = menu['input']['msg_error']
-			context.bot.send_message(
-				config.admin_group_id, texts.qiwi_error,
-				reply_markup=InlineKeyboardMarkup(
-					[[InlineKeyboardButton(texts.goto_qiwi, url=config.qiwi_url)]])
-			)
-	del context.user_data['withdraw_details']
-	update.callback_query.answer(
-		answer_msg or menu['input']['msg_fail'], show_alert=True)
+	context.user_data['withdraw_details']['amount'] = amount
+	return None, withdraw_money
 
 
 ##############################

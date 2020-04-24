@@ -14,5 +14,22 @@ def confirmButton(callback_data):
 	return getButton(texts.confirm, f'confirm_{callback_data}')
 
 
-def messageAdmins(bot, message_text):
-	bot.send_message(config.admin_group_id, message_text)
+admin_warnings = {
+	'qiwi_failed': {
+		'text': texts.qiwi_error,
+		'reply_markup': InlineKeyboardMarkup(
+			[[InlineKeyboardButton(texts.goto_qiwi, url=config.qiwi_url)]])
+	},
+	'prizes': {
+		'text': texts.match_has_ended
+	},
+}
+
+
+def message_admins(bot, status, **format_kwargs):
+	message = admin_warnings[status]
+	bot.send_message(
+		config.admin_group_id,
+		message['text'].format(**format_kwargs),
+		reply_markup=message.get('reply_markup')
+	)
