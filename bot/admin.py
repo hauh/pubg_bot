@@ -3,6 +3,7 @@ from logging import getLogger
 
 import texts
 import database
+import excel
 import utility
 
 ##############################
@@ -16,7 +17,7 @@ manage_matches_menu = admin_menu['next']['manage_matches']
 def with_admin_rights(admin_func):
 	def check_rights(update, context, *menu):
 		if not context.user_data.get('admin'):
-			return (None, None)
+			return (texts.menu['msg'], texts.menu['buttons'][1:])
 		return admin_func(update, context, *menu)
 	return check_rights
 
@@ -97,7 +98,7 @@ def with_existing_game(manage_match_func):
 		where = context.user_data['history'][-1]
 		if where.startswith('set_game_id'):
 			games = context.bot_data.get('pending_games', {})
-		elif where.startswith('set_winners') or where.startswith('set_killers'):
+		elif where.startswith('set_winners'):
 			games = context.bot_data.get('running_games', {})
 		else:
 			games = set()
@@ -141,136 +142,98 @@ def set_game_id(update, context, menu, game):
 @with_admin_rights
 @with_existing_game
 def set_winners(update, context, menu, game):
-	if all_winner_set := context.user_data.pop('validated_input', None):
+	def done(answer, *format_args, confirm=False):
+		if confirm:
+			confirm_button = utility.confirm_button('winners')
+		else:
+			confirm_button = []
+			game.reset_winners()
+		return (
+			menu['answers'][answer].format(*format_args),
+			[confirm_button] + menu['buttons']
+		)
+
+	# reward players if winners are set and confirmed
+	if context.user_data.pop('validated_input', None) and game.winners_are_set:
+		for player_id in game.players:
+			player_data = context.dispatcher.user_data.get(player_id)
+			try:
+				player_data.pop('game_message').delete()
+			except Exception:
+				pass
+		winners, total_payouts = game.reward()
+		for winner_id, victory_message, prize in winners:
+			winner_data = context.dispatcher.user_data.get(winner_id)
+			winner_data['balance'] = database.change_balance(
+				winner_id, prize, 'prize', game.slot_id)
+			winner_data['game_message'] = context.bot.send_message(
+				winner_id,
+				texts.victory.format(
+					game=str(game), victory_message=victory_message, prize=prize)
+			)
+		logger.info(f"Game ended, winners are, payout: {total_payouts}")
+		utility.message_admins(
+			context.bot, 'prizes',
+			game=str(game), pubg_id=game.pubg_id,
+			total_bets=game.prize_fund, prizes=total_payouts
+		)
+		context.bot_data.get('running_games', set()).discard(game)
+
 		update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
 		del context.user_data['history'][-1]
 		distribute_prizes(context, game)
 		return manage_matches(update, context)
 
-	games_buttons = []
-	if game.winners_are_set:
-		games_buttons.append(utility.confirm_button('winners'))
-	winners = ""
-	if game.game_type != 'kills':
-		for place, winner in game.winners.items():
-			winner_description = menu['next']['place_']['btn_template'].format(
-				place=place, username=winner)
-			games_buttons.append(utility.create_button(
-				winner_description, f"place_{game.slot_id}_{place}"))
-			winners += winner_description
-	if game.game_type != 'survival':
-		games_buttons.append(utility.create_button(
-			menu['next']['set_killers_']['btn_template'],
-			f"set_killers_{game.slot_id}"
-		))
-	return (
-		menu['msg'].format(
-			game=str(game),
-			pubg_id=game.pubg_id,
-			kills=game.total_kills,
-			winners=winners
-		),
-		games_buttons + menu['buttons']
-	)
+	# if no file was uploaded ask for winners table
+	if not (file_upload := update.effective_message.document):
+		return (menu['msg'], menu['buttons'])
 
+	# trying to load xlsx file
+	if not (results := excel.read_table(file_upload.get_file())):
+		return done('bad_file')
 
-@with_admin_rights
-def set_each_winner(update, context, menu):
-	game_cb_data = update.callback_query.data.lstrip('place_').split('_')
-	game_id = int(game_cb_data[0])
-	place = int(game_cb_data[1])
-	if not (user_input := context.user_data.pop('user_input', None)):
-		return (menu['msg'].format(place), menu['buttons'])
+	# reading file for places
+	if game.type != 'kills':
+		for user_id, place in excel.get_winners(results):
+			if user_id not in game.players:
+				return done('unknown_player', user_id)
+			if place not in game.winning_places:
+				return done('invalid_value', user_id)
+			if user_id in game.winners.values():
+				return done('duplicate_player', user_id)
+			if game.winners.get(place) != user_id:
+				return done('duplicate_place', user_id, place)
+			game.winners[place] = user_id
 
-	running_games = context.bot_data.get('running_games', {})
-	for game in running_games:
-		if game.slot_id == game_id:
-			if not (user := database.get_user(pubg_username=user_input)):
-				try:
-					user = database.get_user(pubg_id=int(user_input))
-				except (TypeError, ValueError):
-					pass
-			if not user:
-				game.winners[place] = texts.user_not_found
-				return (menu['input']['msg_fail'], menu['buttons'])
+	# reading file for kills
+	if game.type != 'survival':
+		possible_kills = range(1, game.players_count)
+		for user_id, kills in excel.get_killers(results):
+			if user_id not in game.players:
+				return done('unknown_player', user_id)
+			if kills not in possible_kills:
+				return done('invalid_value', user_id)
+			if game.killers.setdefault(user_id, kills) != kills:
+				return done('duplicate_player', user_id)
+		if game.total_kills != game.players_count - 1:
+			return done('wrong_kills')
 
-			game.winners[place] = user['pubg_username']
-			del context.user_data['history'][-1:]
-			return set_winners(
-				update, context,
-				admin_menu['next']['manage_matches']['next']['set_winners_']
-			)
+	if not game.winners_are_set:
+		return done('not_enough_data')
 
-	del context.user_data['history'][-1:]
-	return manage_matches(update, context)
-
-
-@with_admin_rights
-@with_existing_game
-def set_killers(update, context, menu, game):
-	user_input = context.user_data.pop('user_input', None)
-	error_message = None
-	if user_input:
-		if not re.match(r'^.+,[0-9][0-9]?$', user_input):
-			error_message = menu['input']['msg_error']
-		else:
-			username, score = user_input.split(',')
-			if not (user := database.get_user(pubg_username=username)):
-				try:
-					user = database.get_user(pubg_id=int(username))
-				except (TypeError, ValueError):
-					pass
-			if not user:
-				error_message = menu['input']['msg_fail']
-			else:
-				username = user['pubg_username']
-				score = int(score)
-				if username in game.killers.keys() and score == 0:
-					del game.killers[username]
-				elif game.total_kills + score > game.players_count - 1:
-					error_message = menu['input']['msg_fail']
-				else:
-					game.killers[username] = score
-
-	return (
-		menu['msg'].format(
-			kills=game.total_kills,
-			players=game.players_count,
-			killers="\n".join(
-				[f'{killer} - {score}' for killer, score in game.killers.items()]),
-		) + (f'\n\n*{error_message}*' if error_message else ""),
-		menu['buttons']
-	)
-
-
-def distribute_prizes(context, game):
-	for player_id in game.players:
-		player_data = context.dispatcher.user_data.get(player_id)
-		try:
-			player_data.pop('game_message').delete()
-		except Exception:
-			pass
-	winners, total_payouts = game.reward()
-	for winner_id, victory_message, prize in winners:
-		winner_data = context.dispatcher.user_data.get(winner_id)
-		winner_data['balance'] = database.change_balance(
-			winner_id, prize, 'prize', game.slot_id)
-		winner_data['game_message'] = context.bot.send_message(
-			winner_id,
-			texts.victory.format(
-				game=str(game), victory_message=victory_message, prize=prize)
-		)
-	logger.info(f"Game ended, winners are, payout: {total_payouts}")
-	utility.message_admins(
-		context.bot, 'prizes',
-		game=str(game), pubg_id=game.pubg_id,
-		total_bets=game.prize_fund, prizes=total_payouts
-	)
-	context.bot_data.get('running_games', set()).discard(game)
+	return done('confirm', confirm=True)
 
 
 @with_admin_rights
 def mailing(update, context, menu):
+	def spam(context):
+		user_id, spam_message = context.job.context
+		try:
+			context.bot.send_message(user_id, spam_message)
+		except Exception as err:
+			logger.error('Sending message to {} failed because: {}, {}'.format(
+				user_id, type(err).__name__, err.args))
+
 	if confirm_spam := context.user_data.pop('validated_input', None):
 		users = database.get_user(admin=False)
 		for delay, user in enumerate(users):
@@ -291,15 +254,6 @@ def mailing(update, context, menu):
 	return (menu['msg'], menu['buttons'])
 
 
-def spam(context):
-	user_id, spam_message = context.job.context
-	try:
-		context.bot.send_message(user_id, spam_message)
-	except Exception as err:
-		logger.error('Sending message to {} failed because: {}, {}'.format(
-			user_id, type(err).__name__, err.args))
-
-
 ##############################
 
 admin_menu['callback'] = admin_main
@@ -309,7 +263,5 @@ manage_admins_menu['next']['add_admin']['callback'] = add_admin
 manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
 
 manage_matches_menu['callback'] = manage_matches
-manage_matches_menu['next']['set_game_id_']['callback'] = set_game_id
 manage_matches_menu['next']['set_winners_']['callback'] = set_winners
-manage_matches_menu['next']['set_winners_']['next']['place_']['callback'] = set_each_winner
-manage_matches_menu['next']['set_winners_']['next']['set_killers_']['callback'] = set_killers
+manage_matches_menu['next']['set_game_id_']['callback'] = set_game_id

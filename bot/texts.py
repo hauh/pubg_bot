@@ -361,6 +361,10 @@ admin = {
 				'msg_success': "Начата рассылка сообщений"
 			}
 		},
+		'read_file': {
+			'btn': "Read file",
+			'msg': "Upload xlsx here"
+		}
 	}
 }
 menu['next']['admin'].update(admin)

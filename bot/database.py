@@ -20,11 +20,12 @@ def with_connection(db_transaction):
 				with conn.cursor(cursor_factory=RealDictCursor) as cursor:
 					return db_transaction(cursor, *args, **kwargs)
 		except Exception as err:
-			logger.critical(
-				f"DB transaction failed with:\n{type(err).__name__} {err.args}")
+			err.args = (
+				(db_transaction.__name__,)
+				+ tuple(args) + tuple(kwargs.items())
+				+ err.args if err.args else ()
+			)
 			raise
-		finally:
-			conn.close()
 	return execute_with_connection
 
 ##############################
@@ -157,7 +158,7 @@ def withdraw_money(cursor, user_id, **details):
 	)
 	if not (qiwi_id := qiwi.make_payment(**details)):
 		cursor.connection.rollback()
-		logger.error(f"Withdrawal for user id {user_id} failed")
+		logger.error(f"Withdraw for user id {user_id} ({details}) failed")
 		return None
 	transaction_id = cursor.fetchone()
 	cursor.execute(

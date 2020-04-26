@@ -1,23 +1,25 @@
+import os
 import logging
 import pytz
-from os import getenv
+
 
 # bot
-bot_token = getenv('TG_TOKEN')
-admin_id = [int(i) for i in getenv('ADMIN_ID').split(',')]
-admin_group_id = getenv('ADMIN_GROUP_ID')
-battle_chat = getenv('BATTLE_CHAT_LINK')
-db_url = getenv('HEROKU_DB')
+bot_token = os.getenv('TG_TOKEN')
+admin_id = [int(i) for i in os.getenv('ADMIN_ID').split(',')]
+admin_group_id = os.getenv('ADMIN_GROUP_ID')
+battle_chat = os.getenv('BATTLE_CHAT_LINK')
+db_url = os.getenv('HEROKU_DB')
 
 # qiwi
-qiwi_token = getenv('QIWI_TOKEN')
-qiwi_phone = getenv('QIWI_PHONE')
+qiwi_token = os.getenv('QIWI_TOKEN')
+qiwi_phone = os.getenv('QIWI_PHONE')
 qiwi_url = 'https://qiwi.com'
 
 # logger
 logging.basicConfig(
-	format='%(asctime)s - %(name)s.%(funcName)s - %(levelname)s - %(message)s',
 	level=logging.INFO,
+	format='{asctime} - {name}.{funcName} - {levelname} - {message}',
+	style='{',
 	handlers=[
 		logging.FileHandler('pubg_bot.log', encoding='utf-8'),
 		logging.StreamHandler()
