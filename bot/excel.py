@@ -26,7 +26,7 @@ def create_table(players):
 		sheet.column_dimensions[str(chr(64 + index))].width = width
 
 	for row, player in enumerate(players, start=2):
-		for column, player_data in enumerate(player, start=1):
+		for column, player_data in enumerate(player.values(), start=1):
 			sheet.cell(row, column, player_data).number_format = FORMAT_NUMBER
 
 	virtual_file = BytesIO()
@@ -49,12 +49,12 @@ def read_table(winners_file):
 
 
 def get_winners(results):
-	for row in sheet.iter_rows(min_row=2):
-		if place := row[5].value:
-			yield row[1].value, place
+	for row in results.iter_rows(min_row=2):
+		if place := row[4].value:
+			yield row[2].row, row[2].value, place
 
 
 def get_killers(results):
-	for row in sheet.iter_rows(min_row=2):
-		if kills := row[6].value:
-			yield row[1].value, kills
+	for row in results.iter_rows(min_row=2):
+		if kills := row[5].value:
+			yield row[2].row, row[2].value, kills

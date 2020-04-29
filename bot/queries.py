@@ -39,8 +39,8 @@ init_db = (
 	"""
 	CREATE TABLE IF NOT EXISTS transactions (
 		id			SERIAL,
-		amount		INT NOT NULL,
 		user_id		BIGINT NOT NULL,
+		amount		INT NOT NULL,
 		reason		TEXT NOT NULL,
 		external_id	BIGINT,
 		match_id	INT,
@@ -97,6 +97,11 @@ leave_slot =\
 	"""
 	DELETE FROM {} WHERE (match_id = %s) AND (user_id = %s)
 	"""
+get_players =\
+	"""
+	SELECT pubg_id, pubg_username, id, username FROM users
+	WHERE users.id IN (SELECT user_id FROM players_in_matches WHERE match_id = %s)
+	"""
 set_player_result =\
 	"""
 	UPDATE players_in_matches SET {} = %s
@@ -106,7 +111,8 @@ set_player_result =\
 # balances
 change_balance =\
 	"""
-	INSERT INTO transactions VALUES (%s, %s, %s, %s, %s, NOW())
+	INSERT INTO transactions (user_id, amount, reason, external_id, match_id, date)
+	VALUES (%s, %s, %s, %s, %s, NOW())
 	RETURNING id
 	"""
 update_transaction_id =\

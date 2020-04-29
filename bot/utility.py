@@ -11,7 +11,7 @@ def create_button(text, callback_data):
 
 
 def confirm_button(callback_data):
-	return [InlineKeyboardButton(texts.confirm, f'confirm_{callback_data}')]
+	return create_button(texts.confirm, f'confirm_{callback_data}')
 
 
 def add_buttons_to_menu():

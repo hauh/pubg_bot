@@ -14,9 +14,10 @@ class Slot:
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 		self.players = set()
 		self.winning_places = range(1, 11)
+		self.is_running = False
 		self.pubg_id = None
 		self.room_pass = None
-		self.winners, self.killers = self.reset_winners()
+		self.reset_winners()
 
 	def __str__(self):
 		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
@@ -74,7 +75,8 @@ class Slot:
 		)
 
 	def reset_winners(self):
-		return dict.fromkeys(self.winning_places), dict()
+		self.winners = dict.fromkeys(self.winning_places)
+		self.killers = dict()
 
 	def create_button(self, leave=False):
 		if leave:

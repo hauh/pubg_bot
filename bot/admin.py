@@ -1,6 +1,8 @@
 import re
 from logging import getLogger
 
+from telegram import ChatAction
+
 import texts
 import database
 import excel
@@ -12,6 +14,7 @@ logger = getLogger(__name__)
 admin_menu = texts.menu['next']['admin']
 manage_admins_menu = admin_menu['next']['manage_admins']
 manage_matches_menu = admin_menu['next']['manage_matches']
+set_winners_menu = manage_matches_menu['next']['set_winners_']
 
 
 def with_admin_rights(admin_func):
@@ -66,82 +69,64 @@ def switch_admin(update, context, menu, admin_id, new_state):
 
 @with_admin_rights
 def manage_matches(update, context, menu=manage_matches_menu):
-	pending_games = context.bot_data.get('pending_games', [])
-	running_games = context.bot_data.get('running_games', [])
-
-	buttons = []
-	for slot in pending_games:
-		buttons.append(utility.create_button(
-			menu['next']['set_game_id_']['btn_template'].format(
-				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
-			f"set_game_id_{slot.slot_id}"
-		))
-	for slot in running_games:
-		buttons.append(utility.create_button(
-			menu['next']['set_winners_']['btn_template'].format(
-				game=str(slot), pubg_id=slot.pubg_id, room_pass=slot.room_pass),
-			f"set_winners_{slot.slot_id}"
-		))
-	return (
-		menu['msg'].format(
-			pending='\n'.join(str(game) for game in pending_games)
-				if pending_games else menu['default'],
-			running='\n'.join(str(game) for game in running_games)
-				if running_games else menu['default']
-		),
-		buttons + menu['buttons']
-	)
-
-
-def with_existing_game(manage_match_func):
-	def check_game(update, context, menu):
-		where = context.user_data['history'][-1]
-		if where.startswith('set_game_id'):
-			games = context.bot_data.get('pending_games', {})
-		elif where.startswith('set_winners'):
-			games = context.bot_data.get('running_games', {})
+	games = context.bot_data.get('games', [])
+	games_buttons = []
+	for game in sorted(games, key=lambda game: game.time):
+		if game.is_running:
+			button_text = menu['btn_template'].format(
+				status='🏆', room_id=game.pubg_id, game=str(game))
+			button_data = f"set_winners_{game.slot_id}"
 		else:
-			games = set()
-		game_id = int(where.split('_')[-1])
-		for game in games:
-			if game.slot_id == game_id:
-				return manage_match_func(update, context, menu, game)
+			button_text = menu['btn_template'].format(
+				status='🕑', room_id=game.pubg_id, game=str(game))
+			button_data = f"set_room_id_{game.slot_id}"
+		games_buttons.append(utility.create_button(button_text, button_data))
+	return (menu['msg'], games_buttons + menu['buttons'])
 
-		update.callback_query.answer(texts.error, show_alert=True)
-		del context.user_data['history'][-1:]
+
+def with_game_to_manage(manage_game_func):
+	def find_game(update, context, *menu):
+		current_game_id = int(context.user_data['history'][-1].split('_')[-1])
+		for game in context.bot_data.get('games', []):
+			if game.slot_id == current_game_id:
+				return manage_game_func(update, context, game, *menu)
 		return manage_matches(update, context)
-	return check_game
+	return find_game
 
 
 @with_admin_rights
-@with_existing_game
-def set_game_id(update, context, menu, game):
-	if validated_input := context.user_data.pop('validated_input', None):
-		game.update_room(*validated_input.split(','))
-		answer = menu['input']['msg_success']
-		update.callback_query.answer(answer, show_alert=True)
-		del context.user_data['history'][-1:]
+@with_game_to_manage
+def set_room(update, context, game, menu):
+	# if room id and pass confirmed set it and return back
+	if id_and_pass := context.user_data.pop('validated_input', None):
+		game.update_room(*id_and_pass.split(','))
+		update.callback_query.answer(menu['answers']['success'], show_alert=True)
+		del context.user_data['history'][-1]
 		return manage_matches(update, context)
 
-	confirm_button = []
-	if not (user_input := context.user_data.pop('user_input', None)):
-		message = menu['msg'].format(
-			game=str(game), pubg_id=game.pubg_id, room_pass=game.room_pass)
+	message = menu['msg'].format(str(game), game.pubg_id, game.room_pass)
+
+	# if no input ask for it
+	if not (id_and_pass := context.user_data.pop('user_input', None)):
+		return (message, menu['buttons'])
+
+	# input should be in 'pubg_id,pass' format
+	try:
+		pubg_id, room_pass = re.sub(r'\s', '', id_and_pass).split(',')
+		pubg_id = int(pubg_id)
+	except ValueError:
+		answer = menu['answers']['invalid_format']
+		confirm_button = []
 	else:
-		try:
-			pubg_id, room_pass = user_input.split(',')
-		except ValueError:
-			message = menu['input']['msg_error']
-		else:
-			confirm_button = utility.confirm_button(f'{pubg_id},{room_pass}')
-			message = menu['input']['msg_valid'].format(
-				game=str(game), pubg_id=pubg_id, room_pass=room_pass)
-	return (message, [confirm_button] + menu['buttons'])
+		answer = menu['answers']['confirm'].format(pubg_id, room_pass)
+		confirm_button = utility.confirm_button(f'{pubg_id},{room_pass}')
+
+	return (message + answer, [confirm_button] + menu['buttons'])
 
 
 @with_admin_rights
-@with_existing_game
-def set_winners(update, context, menu, game):
+@with_game_to_manage
+def set_winners(update, context, game, menu=set_winners_menu):
 	def done(answer, *format_args, confirm=False):
 		if confirm:
 			confirm_button = utility.confirm_button('winners')
@@ -150,8 +135,10 @@ def set_winners(update, context, menu, game):
 			game.reset_winners()
 		return (
 			menu['answers'][answer].format(*format_args),
-			[confirm_button] + menu['buttons']
+			[confirm_button] + [generate_table_button] + menu['buttons']
 		)
+
+	update.effective_chat.send_action(ChatAction.TYPING)
 
 	# reward players if winners are set and confirmed
 	if context.user_data.pop('validated_input', None) and game.winners_are_set:
@@ -184,44 +171,62 @@ def set_winners(update, context, menu, game):
 		distribute_prizes(context, game)
 		return manage_matches(update, context)
 
+	generate_table_button = utility.create_button(
+		menu['btn_template'], f'generate_table_{game.slot_id}')
+
 	# if no file was uploaded ask for winners table
 	if not (file_upload := update.effective_message.document):
-		return (menu['msg'], menu['buttons'])
+		return (menu['msg'], [generate_table_button] + menu['buttons'])
 
 	# trying to load xlsx file
 	if not (results := excel.read_table(file_upload.get_file())):
 		return done('bad_file')
 
 	# reading file for places
-	if game.type != 'kills':
-		for user_id, place in excel.get_winners(results):
+	if game.game_type != 'kills':
+		for row, user_id, place in excel.get_winners(results):
 			if user_id not in game.players:
-				return done('unknown_player', user_id)
+				return done('unknown_player', row)
 			if place not in game.winning_places:
-				return done('invalid_value', user_id)
+				return done('invalid_value', row)
 			if user_id in game.winners.values():
-				return done('duplicate_player', user_id)
-			if game.winners.get(place) != user_id:
-				return done('duplicate_place', user_id, place)
+				return done('duplicate_player', row)
+			if game.winners[place]:
+				return done('duplicate_place', row)
 			game.winners[place] = user_id
+		if not all(game.winners.values()):
+			return done('not_enough')
 
 	# reading file for kills
-	if game.type != 'survival':
+	if game.game_type != 'survival':
 		possible_kills = range(1, game.players_count)
-		for user_id, kills in excel.get_killers(results):
+		for row, user_id, kills in excel.get_killers(results):
 			if user_id not in game.players:
-				return done('unknown_player', user_id)
+				return done('unknown_player', row)
 			if kills not in possible_kills:
-				return done('invalid_value', user_id)
-			if game.killers.setdefault(user_id, kills) != kills:
-				return done('duplicate_player', user_id)
-		if game.total_kills != game.players_count - 1:
-			return done('wrong_kills')
+				return done('invalid_value', row)
+			if user_id in game.killers:
+				return done('duplicate_player', row)
+			game.killers[user_id] = kills
+		if game.total_kills != possible_kills[-1]:
+			return done('wrong_kills', possible_kills[-1])
 
 	if not game.winners_are_set:
-		return done('not_enough_data')
+		return done('missing_something')
 
 	return done('confirm', confirm=True)
+
+
+@with_admin_rights
+@with_game_to_manage
+def generate_table(update, context, game, menu):
+	update.effective_chat.send_action(ChatAction.TYPING)
+	update.effective_chat.send_document(
+		excel.create_table(database.get_players(game.slot_id)),
+		filename=f'{game.pubg_id}.xlsx'
+	)
+	del context.user_data['history'][-1]
+	return set_winners(update, context)
 
 
 @with_admin_rights
@@ -263,5 +268,7 @@ manage_admins_menu['next']['add_admin']['callback'] = add_admin
 manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
 
 manage_matches_menu['callback'] = manage_matches
-manage_matches_menu['next']['set_winners_']['callback'] = set_winners
-manage_matches_menu['next']['set_game_id_']['callback'] = set_game_id
+manage_matches_menu['next']['set_room_']['callback'] = set_room
+
+set_winners_menu['callback'] = set_winners
+set_winners_menu['next']['generate_table_']['callback'] = generate_table

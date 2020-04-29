@@ -16,7 +16,32 @@ from menu_handler import MenuHandler
 logger = getLogger('bot')
 
 
+def test(context):
+	from slot import Slot
+	import random
+	import datetime
+	games = context.bot_data.setdefault('games', set())
+	slot = Slot(datetime.datetime.now())
+	slot.settings.update({
+		'type': 'kills',
+		'mode': 'solo',
+		'view': '1st',
+		'bet': 30,
+	})
+	count = 0
+	for user in database.get_user():
+		count += 1
+		print(count)
+		if count == 3:
+			break
+		slot.join(user['id'])
+	slot.is_running = True
+	games.add(slot)
+
+
 def start(update, context, menu):
+	test(context)
+
 	user_id = int(update.effective_user.id)
 	username = update.effective_user.username
 	if not (user := database.get_user(id=user_id)):
@@ -38,8 +63,9 @@ def start(update, context, menu):
 
 
 def error(update, context):
+	history = context.user_data.get('history') if context.user_data else None
 	logger.error(
-		f"User chat history: {context.user_data.get('history')}",
+		f"User chat history: {history}",
 		exc_info=(type(context.error), context.error, None)
 	)
 	# if update.callback_query and update.callback_query.id != 0:

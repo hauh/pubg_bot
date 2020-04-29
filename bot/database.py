@@ -113,7 +113,7 @@ def delete_slot(cursor, slot_id):
 def join_slot(cursor, slot_id, user_id, bet):
 	cursor.execute(
 		queries.change_balance,
-		(user_id, -bet, 'buy-in', slot_id, None)
+		(user_id, -bet, 'buy-in', None, slot_id)
 	)
 	cursor.execute(queries.join_slot, (slot_id, user_id))
 
@@ -131,6 +131,12 @@ def leave_slot(cursor, slot_id, user_id):
 
 
 @with_connection
+def get_players(cursor, game_id):
+	cursor.execute(queries.get_players, (game_id,))
+	return cursor.fetchall()
+
+
+@with_connection
 def set_player_result(cursor, slot_id, user_id, result, value):
 	cursor.execute(
 		SQL(queries.set_player_results).format(Identifier(result)),
@@ -143,7 +149,7 @@ def set_player_result(cursor, slot_id, user_id, result, value):
 def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 	cursor.execute(
 		queries.change_balance,
-		(user_id, amount, reason, slot_id, ext_id)
+		(user_id, amount, reason, ext_id, slot_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
 	logger.info(f"Balance of user id {user_id} changed for {amount}: {reason}")
