@@ -13,20 +13,33 @@ def matches_main(update, context, menu=matches_menu):
 		del context.user_data['history'][-1]
 		return (None,)
 
-	picked = context.user_data.setdefault('picked_slots', set())
+	picked_slots = context.user_data.setdefault('picked_slots', set())
 	all_slots = context.bot_data.get('slots')
-	for expired_slot in picked - set(all_slots):
-		picked.discard(expired_slot)
-	buttons = [slot.create_button(leave=True) for slot in picked]
-	if len(picked) < 3:
-		buttons += [slot.create_button() for slot in all_slots if slot not in picked]
+	for expired_slot in picked_slots - set(all_slots):
+		picked_slots.discard(expired_slot)
+	slots_buttons = []
+	for slot in picked_slots:
+		slots_buttons.append(utility.create_button(
+			f"{slot.time.strftime('%H:%M')} - {texts.leave_match}",
+			f'slot_{slot.slot_id}'
+		))
+	if len(picked_slots) < 3:
+		for slot in all_slots:
+			if not slot.players:
+				text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
+			elif slot.is_full:
+				text = f"{slot.time.strftime('%H:%M')} - {texts.full_slot}"
+			else:
+				text = str(slot)
+			slots_buttons.append(utility.create_button(
+				text, f'slot_{slot.slot_id}'))
 	return (
 		menu['msg'].format(
 			balance=context.user_data['balance'],
-			matches='\n'.join(str(slot) for slot in picked)
+			matches='\n'.join(str(slot) for slot in picked_slots)
 				if picked else menu['default']
 		),
-		*buttons
+		*slots_buttons
 	)
 
 

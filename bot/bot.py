@@ -35,7 +35,7 @@ def test(context):
 		if count == 3:
 			break
 		slot.join(user['id'])
-	slot.is_running = True
+	slot.running = True
 	games.add(slot)
 
 

@@ -1,5 +1,4 @@
 import re
-from logging import getLogger
 
 from telegram import ChatAction
 
@@ -10,7 +9,6 @@ import utility
 
 ##############################
 
-logger = getLogger(__name__)
 admin_menu = texts.menu['next']['admin']
 manage_admins_menu = admin_menu['next']['manage_admins']
 manage_matches_menu = admin_menu['next']['manage_matches']
@@ -70,15 +68,18 @@ def manage_matches(update, context, menu=manage_matches_menu):
 	games = context.bot_data.get('games', [])
 	games_buttons = []
 	for game in sorted(games, key=lambda game: game.time):
-		if game.is_running:
-			button_text = menu['btn_template'].format(
-				status='🏆', room_id=game.pubg_id, game=str(game))
-			button_data = f"set_winners_{game.slot_id}"
-		else:
-			button_text = menu['btn_template'].format(
-				status='🕑', room_id=game.pubg_id, game=str(game))
-			button_data = f"set_room_id_{game.slot_id}"
-		games_buttons.append(utility.create_button(button_text, button_data))
+		if game.running:
+			games_buttons.append(utility.create_button(
+				menu['btn_template'].format(
+					status='🏆', room_id=game.pubg_id, game=str(game)),
+				f"set_winners_{game.slot_id}"
+			))
+		elif not game.finished:
+			games_buttons.append(utility.create_button(
+				menu['btn_template'].format(
+					status='🕑', room_id=game.pubg_id, game=str(game)),
+				f"set_room_id_{game.slot_id}"
+			))
 	return (menu['msg'], *games_buttons)
 
 
@@ -86,7 +87,7 @@ def with_game_to_manage(manage_game_func):
 	def find_game(update, context, *menu):
 		current_game_id = int(context.user_data['history'][-1].split('_')[-1])
 		for game in context.bot_data.get('games', []):
-			if game.slot_id == current_game_id:
+			if game.slot_id == current_game_id and not game.finished:
 				return manage_game_func(update, context, game, *menu)
 		return manage_matches(update, context)
 	return find_game
@@ -127,7 +128,7 @@ def set_winners(update, context, game, menu=set_winners_menu):
 			confirm_button = utility.confirm_button('winners')
 		else:
 			confirm_button = []
-			game.reset_winners()
+			game.reset_results()
 		return (
 			menu['answers'][answer].format(*format_args),
 			confirm_button, generate_table_button
@@ -135,35 +136,12 @@ def set_winners(update, context, game, menu=set_winners_menu):
 
 	update.effective_chat.send_action(ChatAction.TYPING)
 
-	# reward players if winners are set and confirmed
+	# if winners are set and confirmed mark game as finished for job worker
 	if context.user_data.pop('validated_input', None) and game.winners_are_set:
-		for player_id in game.players:
-			player_data = context.dispatcher.user_data.get(player_id)
-			try:
-				player_data.pop('game_message').delete()
-			except Exception:
-				pass
-		winners, total_payouts = game.reward()
-		for winner_id, victory_message, prize in winners:
-			winner_data = context.dispatcher.user_data.get(winner_id)
-			winner_data['balance'] = database.change_balance(
-				winner_id, prize, 'prize', game.slot_id)
-			winner_data['game_message'] = context.bot.send_message(
-				winner_id,
-				texts.victory.format(
-					game=str(game), victory_message=victory_message, prize=prize)
-			)
-		logger.info(f"Game ended, winners are, payout: {total_payouts}")
-		utility.message_admins(
-			context.bot, 'prizes',
-			game=str(game), pubg_id=game.pubg_id,
-			total_bets=game.prize_fund, prizes=total_payouts
-		)
-		context.bot_data.get('running_games', set()).discard(game)
-
-		update.callback_query.answer(menu['input']['msg_success'], show_alert=True)
+		game.running = False
+		game.finished = True
+		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		del context.user_data['history'][-1]
-		distribute_prizes(context, game)
 		return manage_matches(update, context)
 
 	generate_table_button = utility.create_button(
@@ -177,39 +155,36 @@ def set_winners(update, context, game, menu=set_winners_menu):
 	if not (results := excel.read_table(winners_file.get_file())):
 		return done('bad_file')
 
+	game.reset_results()
 	# reading file for places
-	if game.game_type != 'kills':
+	if possible_places := game.places_to_reward():
 		for row, user_id, place in excel.get_winners(results):
-			if user_id not in game.players:
-				return done('unknown_player', row)
-			if place not in game.winning_places:
+			if place not in possible_places:
 				return done('invalid_value', row)
-			if user_id in game.winners.values():
-				return done('duplicate_player', row)
-			if game.winners[place]:
-				return done('duplicate_place', row)
-			game.winners[place] = user_id
-		if not all(game.winners.values()):
+			if not (player := game.players.get(user_id)):
+				return done('unknown_player', row)
+			player['place'] = place
+			possible_places.remove(place)
+		if possible_places:
 			return done('not_enough')
 
 	# reading file for kills
-	if game.game_type != 'survival':
-		possible_kills = range(1, game.players_count)
+	if game.prize_structure['kills']:
+		possible_kills = range(game.players_count)
 		for row, user_id, kills in excel.get_killers(results):
-			if user_id not in game.players:
-				return done('unknown_player', row)
 			if kills not in possible_kills:
 				return done('invalid_value', row)
-			if user_id in game.killers:
-				return done('duplicate_player', row)
-			game.killers[user_id] = kills
+			if not (player := game.players.get(user_id)):
+				return done('unknown_player', row)
+			player['kills'] = kills
 		if game.total_kills != possible_kills[-1]:
 			return done('wrong_kills', possible_kills[-1])
 
 	if not game.winners_are_set:
 		return done('missing_something')
 
-	return done('confirm', game.prize_fund, game.calculate_prizes(), confirm=True)
+	total_payouts = game.distribute_prizes()
+	return done('confirm', game.prize_fund, total_payouts, confirm=True)
 
 
 @with_admin_rights
@@ -227,27 +202,27 @@ def generate_table(update, context, game, menu):
 @with_admin_rights
 def mailing(update, context, menu):
 	def spam(context):
-		user_id, spam_message = context.job.context
 		try:
-			context.bot.send_message(user_id, spam_message)
-		except Exception as err:
-			logger.error('Sending message to {} failed because: {}, {}'.format(
-				user_id, type(err).__name__, err.args))
+			context.bot.send_message(*context.job.context)
+		except Exception:
+			pass
 
-	if confirm_spam := context.user_data.pop('validated_input', None):
+	# if confirmed start spam
+	if context.user_data.pop('validated_input', None):
 		users = database.get_user(admin=False)
+		spam_message = context.bot_data.pop('spam_message')
 		for delay, user in enumerate(users):
 			context.job_queue.run_once(
-				spam, delay * 0.1,
-				context=(user['id'], context.bot_data.pop('spam_message'))
-			)
-		update.callback_query.answer(menu['input']['msg_success'])
+				spam, delay * 0.1, context=(user['id'], spam_message))
+		update.callback_query.answer(menu['answers']['success'])
+		del context.user_data['history'][-1]
 		return admin_main(update, context)
 
+	# if got message ask to confirm
 	if user_input := context.user_data.pop('user_input', None):
 		context.bot_data['spam_message'] = user_input
 		return (
-			menu['input']['msg_valid'].format(user_input),
+			menu['answers']['success'].format(user_input),
 			utility.confirm_button('spam')
 		)
 

@@ -1,7 +1,4 @@
-from telegram import InlineKeyboardButton
-
 import config
-import texts
 import database
 
 ##############################
@@ -12,12 +9,10 @@ class Slot:
 		self.slot_id = database.create_slot(time)
 		self.time = time
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
-		self.players = set()
-		self.winning_places = range(1, 11)
-		self.is_running = False
-		self.pubg_id = None
-		self.room_pass = None
-		self.reset_winners()
+		self.players = dict()
+		self.prize_fund = 0
+		self.running = self.finished = False
+		self.pubg_id = self.room_pass = None
 
 	def __str__(self):
 		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
@@ -54,91 +49,92 @@ class Slot:
 		return self.pubg_id and self.room_pass
 
 	@property
-	def prize_fund(self):
-		return int(self.settings['bet']) * self.players_count
-
-	@property
 	def game_type(self):
 		return self.settings['type']
 
 	@property
+	def prize_structure(self):
+		return config.prize_structure[self.game_type]
+
+	@property
 	def total_kills(self):
-		return sum(self.killers.values())
+		return sum(player.get('kills', 0) for player in self.players.values())
 
 	@property
 	def winners_are_set(self):
-		return (
-			(self.game_type == 'kills' and self.total_kills == self.players_count - 1)
-			or (self.game_type == 'survival' and all(self.winners.values()))
-			or (self.game_type == 'mixed' and all(self.winners.values())
-				and self.total_kills == self.players_count - 1)
-		)
+		if (0 < sum(self.places_to_reward())
+		!= sum([player.get('place', 0) for player in self.players.values()])):
+			return False
+		if (self.prize_structure['kills']
+		and self.total_kills != self.players_count - 1):
+			return False
+		return True
 
-	def reset_winners(self):
-		self.winners = dict.fromkeys(self.winning_places)
-		self.killers = dict()
+	def reset_results(self):
+		for results in self.players.values():
+			results.clear()
 
-	def create_button(self, leave=False):
-		if leave:
-			text = f"{self.time.strftime('%H:%M')} - {texts.leave_match}"
-		elif not self.players:
-			text = f"{self.time.strftime('%H:%M')} - {texts.free_slot}"
-		elif self.is_full:
-			text = f"{self.time.strftime('%H:%M')} - {texts.full_slot}"
-		else:
-			text = str(self)
-		return [InlineKeyboardButton(text, callback_data=f'slot_{self.slot_id}')]
+	def update_settings(self, settings):
+		database.update_slot(self.slot_id, **settings)
+		settings['bet'] = int(settings['bet'])
+		self.settings.update(settings)
+
+	def places_to_reward(self):
+		return set(self.prize_structure.keys()) - set(['kills'])
 
 	def join(self, user_id):
-		self.players.add(user_id)
 		database.join_slot(self.slot_id, user_id, self.bet)
+		self.players[user_id] = dict()
+		self.prize_fund += self.bet
 
 	def leave(self, user_id):
-		self.players.discard(user_id)
 		database.leave_slot(self.slot_id, user_id)
+		del self.players[user_id]
+		self.prize_fund -= self.bet
 		if not self.players:
 			self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 
-	def update_settings(self, settings):
-		settings['bet'] = int(settings['bet'])
-		self.settings.update(settings)
-		database.update_slot(self.slot_id, **settings)
-
 	def update_room(self, pubg_id, room_pass):
 		pubg_id = int(pubg_id)
+		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 		self.pubg_id = pubg_id
 		self.room_pass = room_pass
-		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 
-	def reward(self):
-		winners = set()
-		prize_structure = config.prize_structure[self.game_type]
-		prize_fund = self.prize_fund
-		if self.total_kills:
+	def distribute_prizes(self):
+		total_payout = 0
+		if self.prize_structure['kills'] and self.total_kills:
 			kill_price = round(
-				prize_fund / 100.0 * prize_structure['kill'] / self.total_kills)
+				self.prize_fund / 100.0
+				* prize_structure['kills']
+				/ self.total_kills
+			)
 		else:
 			kill_price = 0
-		total_payout = 0
-		if self.game_type != 'kills':
-			for place, winner in self.winners.items():
-				if winner != texts.user_not_found:
-					database.set_player_result(self.slot_id, winner, 'place', place)
-					percent = prize_structure[place]
-					kills = self.killers.pop(winner, 0)
-					prize = round(prize_fund / 100.0 * percent) + kills * kill_price
-					total_payout += prize
-					user = database.get_user(pubg_username=winner)
-					victory_message = texts.winner_place.format(place)
-					if kills:
-						victory_message += texts.kills_count.format(kills)
-					winners.add((user['id'], victory_message, prize))
-		if self.game_type != 'survival':
-			for killer, kills in self.killers.items():
-				database.set_player_result(self.slot_id, killer, 'kills', kills)
-				prize = kills * kill_price
+		for player_results in self.players.values():
+			if place := player_results.get('place'):
+				prize = round(
+					self.prize_fund / 100.0
+					* self.prize_structure[place]
+				)
+				player_results.setdefault('prize', {}).update(for_place=prize)
 				total_payout += prize
-				user = database.get_user(pubg_username=killer)
-				winners.add((user['id'], texts.kills_count.format(kills), prize))
+			if kills := player_results.get('kills'):
+				prize = kills * kill_price
+				player_results.setdefault('prize', {}).update(for_kills=prize)
+				total_payout += prize
+		return total_payout
+
+	def reward(self):
+		for user_id, result in self.players.items():
+			if prizes := result.get('prize'):
+				if place := result.get('place', 0):
+					database.set_player_result(
+						self.slot_id, user_id, 'place', place)
+				if kills := result.get('kills', 0):
+					database.set_player_result(
+						self.slot_id, user_id, 'kills', kills)
+				prize = prizes.get('for_place', 0) + prizes.get('for_kills', 0)
+				database.change_balance(
+					user_id, prize, 'prize', slot_id=self.slot_id)
+				yield (user_id, prize, place, kills)
 		database.update_slot(self.slot_id, finished=True)
-		return winners, total_payout
