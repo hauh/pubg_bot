@@ -17,19 +17,20 @@ def confirm_button(callback_data):
 def add_buttons_to_menu():
 	def add_buttons(menu, depth=0):
 		buttons = []
-		if 'next' in menu:
-			for button_key, button_data in menu['next'].items():
-				if 'btn' in button_data:
-					buttons.append(create_button(button_data['btn'], button_key))
-				add_buttons(button_data, depth + 1)
+		for key, next_menu in menu.get('next', {}).items():
+			if 'btn' in next_menu:
+				buttons.append(create_button(next_menu['btn'], key))
+			add_buttons(next_menu, depth + 1)
 		if depth:
 			buttons.append(back_button + main_button if depth > 1 else [])
 		menu['buttons'] = buttons
+		for key, text in menu.get('extra_buttons', {}).items():
+			menu['extra_buttons'][key] = create_button(text, key)
 
 	back_button = create_button(texts.back, 'back')
 	main_button = create_button(texts.main, 'main')
 	add_buttons(texts.menu)
-	texts.menu['buttons'][5][0].url = config.battle_chat
+	texts.menu['buttons'][4][0].url = config.battle_chat
 
 
 admin_warnings = {

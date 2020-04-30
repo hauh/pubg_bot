@@ -20,14 +20,14 @@ set_winners_menu = manage_matches_menu['next']['set_winners_']
 def with_admin_rights(admin_func):
 	def check_rights(update, context, *menu):
 		if not context.user_data.get('admin'):
-			return (texts.menu['msg'], texts.menu['buttons'][1:])
+			return (texts.menu['msg'],)
 		return admin_func(update, context, *menu)
 	return check_rights
 
 
 @with_admin_rights
 def admin_main(update, context, menu=admin_menu):
-	return (menu['msg'], menu['buttons'])
+	return (menu['msg'],)
 
 
 @with_admin_rights
@@ -36,13 +36,13 @@ def add_admin(update, context, menu):
 		return switch_admin(update, context, menu, int(admin_id), True)
 
 	user_input = context.user_data.pop('user_input', None)
-	if user := database.get_user(username=user_input):
-		message = menu['answers']['found'].format(user['username'])
-		confirm_button = utility.create_button(user['id'])
-	else:
-		message = menu['answers']['not_found']
-		confirm_button = []
-	return (message, [confirm_button] + menu['buttons'])
+	if not (user := database.get_user(username=user_input)):
+		return (menu['answers']['not_found'],)
+
+	return (
+		menu['answers']['found'].format(user['username']),
+		utility.confirm_button(user['id'])
+	)
 
 
 @with_admin_rights
@@ -50,13 +50,11 @@ def revoke_admin(update, context, menu):
 	if admin_id := context.user_data.pop('validated_input', None):
 		return switch_admin(update, context, menu, int(admin_id), False)
 
-	admins_buttons = []
-	admins_list = ""
-	for admin in database.get_user(admin=True):
-		admins_buttons.append(utility.create_button(
-			f"@{admin['username']}", f"confirm_{admin['id']}"))
-		admins_list += f"@{admin['username']}\n"
-	return (menu['msg'].format(admins_list), admins_buttons + menu['buttons'])
+	admins_buttons = [
+		utility.create_button(f"@{admin['username']}", f"confirm_{admin['id']}")
+		for admin in database.get_user(admin=True)
+	]
+	return (menu['msg'], *admins_buttons)
 
 
 def switch_admin(update, context, menu, admin_id, new_state):
@@ -81,7 +79,7 @@ def manage_matches(update, context, menu=manage_matches_menu):
 				status='🕑', room_id=game.pubg_id, game=str(game))
 			button_data = f"set_room_id_{game.slot_id}"
 		games_buttons.append(utility.create_button(button_text, button_data))
-	return (menu['msg'], games_buttons + menu['buttons'])
+	return (menu['msg'], *games_buttons)
 
 
 def with_game_to_manage(manage_game_func):
@@ -104,24 +102,21 @@ def set_room(update, context, game, menu):
 		del context.user_data['history'][-1]
 		return manage_matches(update, context)
 
-	message = menu['msg'].format(str(game), game.pubg_id, game.room_pass)
-
 	# if no input ask for it
 	if not (id_and_pass := context.user_data.pop('user_input', None)):
-		return (message, menu['buttons'])
+		return (menu['msg'].format(str(game), game.pubg_id, game.room_pass),)
 
 	# input should be in 'pubg_id,pass' format
 	try:
 		pubg_id, room_pass = re.sub(r'\s', '', id_and_pass).split(',')
 		pubg_id = int(pubg_id)
 	except ValueError:
-		answer = menu['answers']['invalid_format']
-		confirm_button = []
-	else:
-		answer = menu['answers']['confirm'].format(pubg_id, room_pass)
-		confirm_button = utility.confirm_button(f'{pubg_id},{room_pass}')
+		return (menu['answers']['invalid_format'],)
 
-	return (message + answer, [confirm_button] + menu['buttons'])
+	return (
+		menu['answers']['confirm'].format(pubg_id, room_pass),
+		utility.confirm_button(f'{pubg_id},{room_pass}')
+	)
 
 
 @with_admin_rights
@@ -135,7 +130,7 @@ def set_winners(update, context, game, menu=set_winners_menu):
 			game.reset_winners()
 		return (
 			menu['answers'][answer].format(*format_args),
-			[confirm_button] + [generate_table_button] + menu['buttons']
+			confirm_button, generate_table_button
 		)
 
 	update.effective_chat.send_action(ChatAction.TYPING)
@@ -175,11 +170,11 @@ def set_winners(update, context, game, menu=set_winners_menu):
 		menu['btn_template'], f'generate_table_{game.slot_id}')
 
 	# if no file was uploaded ask for winners table
-	if not (file_upload := update.effective_message.document):
-		return (menu['msg'], [generate_table_button] + menu['buttons'])
+	if not (winners_file := context.user_data.pop('user_input', None)):
+		return (menu['msg'], generate_table_button)
 
 	# trying to load xlsx file
-	if not (results := excel.read_table(file_upload.get_file())):
+	if not (results := excel.read_table(winners_file.get_file())):
 		return done('bad_file')
 
 	# reading file for places
@@ -214,7 +209,7 @@ def set_winners(update, context, game, menu=set_winners_menu):
 	if not game.winners_are_set:
 		return done('missing_something')
 
-	return done('confirm', confirm=True)
+	return done('confirm', game.prize_fund, game.calculate_prizes(), confirm=True)
 
 
 @with_admin_rights
@@ -253,10 +248,10 @@ def mailing(update, context, menu):
 		context.bot_data['spam_message'] = user_input
 		return (
 			menu['input']['msg_valid'].format(user_input),
-			[utility.confirm_button('spam')] + menu['buttons']
+			utility.confirm_button('spam')
 		)
 
-	return (menu['msg'], menu['buttons'])
+	return (menu['msg'],)
 
 
 ##############################

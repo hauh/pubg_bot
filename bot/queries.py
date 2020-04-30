@@ -114,7 +114,7 @@ change_balance =\
 	INSERT INTO transactions (user_id, amount, reason, external_id, match_id, date)
 	VALUES (%s, %s, %s, %s, %s, NOW())
 	RETURNING id
-	"""
+	"""  # noqa
 update_transaction_id =\
 	"""
 	UPDATE transactions SET external_id = %s WHERE id = %s

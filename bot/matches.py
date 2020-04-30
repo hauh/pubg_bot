@@ -11,7 +11,7 @@ def matches_main(update, context, menu=matches_menu):
 	or not context.user_data.get('pubg_username')):
 		update.callback_query.answer(menu['answers']['pubg_required'])
 		del context.user_data['history'][-1]
-		return (None, None)
+		return (None,)
 
 	picked = context.user_data.setdefault('picked_slots', set())
 	all_slots = context.bot_data.get('slots')
@@ -26,7 +26,7 @@ def matches_main(update, context, menu=matches_menu):
 			matches='\n'.join(str(slot) for slot in picked)
 				if picked else menu['default']
 		),
-		buttons + menu['buttons']
+		*buttons
 	)
 
 
@@ -88,27 +88,23 @@ def pick_slot(update, context, menu):
 def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 	settings = context.user_data.setdefault(
 		'slot_settings', dict.fromkeys(['type', 'mode', 'view', 'bet'], None))
-	if all(settings.values()):
-		confirm_button = utility.create_button('slot_setup')
-	else:
-		confirm_button = []
-	return (
-		menu['msg'].format(
-			balance=context.user_data['balance'],
-			**{
-				setting: menu['next'][setting]['next'][chosen_value]['btn']
-					if chosen_value else menu['default']
-					for setting, chosen_value in settings.items()
-			}
-		),
-		[confirm_button] + menu['buttons']
+	answer = menu['msg'].format(
+		balance=context.user_data['balance'],
+		**{
+			setting: menu['next'][setting]['next'][chosen_value]['btn']
+				if chosen_value else menu['default']
+				for setting, chosen_value in settings.items()
+		}
 	)
+	if not all(settings.values()):
+		return (answer,)
+	return (answer, utility.confirm_button('slot_setup'))
 
 
 def get_slot_setting(update, context, menu):
-	setting = context.user_data['history'][-2]
-	context.user_data['slot_settings'][setting] = update.callback_query.data
-	del context.user_data['history'][-2:]
+	history = context.user_data.get('history')
+	context.user_data['slot_settings'][history[-2]] = history[-1]
+	del history[-2:]
 	return setup_slot(update, context)
 
 

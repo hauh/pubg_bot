@@ -56,10 +56,9 @@ def start(update, context, menu):
 	if user_id in config.admin_id:
 		user['admin'] = True
 	context.user_data.update(user)
-	return (
-		menu['msg'],
-		menu['buttons'] if user['admin'] else menu['buttons'][1:]
-	)
+	if user['admin']:
+		return (menu['msg'], menu['extra_buttons']['admin'])
+	return (menu['msg'],)
 
 
 def error(update, context):
@@ -68,10 +67,9 @@ def error(update, context):
 		f"User chat history: {history}",
 		exc_info=(type(context.error), context.error, None)
 	)
-	# if update.callback_query and update.callback_query.id != 0:
-	try:
+	if update.callback_query:
 		update.callback_query.answer(texts.error, show_alert=True)
-	except AttributeError:
+	elif coontext.user_data:
 		context.user_data.setdefault('old_messages', []).append(
 			update.effective_chat.send_message(texts.error))
 

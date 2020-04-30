@@ -1,5 +1,4 @@
 import re
-from logging import getLogger
 
 from telegram import (
 	constants, Update, CallbackQuery, InlineKeyboardMarkup
@@ -7,9 +6,6 @@ from telegram import (
 from telegram.ext import Handler
 
 ###################
-
-logger = getLogger(__name__)
-
 
 class MenuHandler(Handler):
 
@@ -32,6 +28,7 @@ class MenuHandler(Handler):
 		return False
 
 	def handle_update(self, update, dispatcher, check_result, context):
+		# hiding buttons
 		if update.callback_query:
 			try:
 				update.callback_query.message.edit_reply_markup(
@@ -39,24 +36,22 @@ class MenuHandler(Handler):
 			except Exception:
 				pass
 
-		history = context.user_data.setdefault('history', [])
-		if not history:
-			next_state = 'main'
-		else:
-			next_state = self._getNextState(update, context, history)
+		history = context.user_data.setdefault('history', ['main'])
+		next_state = self._getNextState(update, context, history)
 
 		if next_state in history:
 			del history[history.index(next_state) + 1:]
 		else:
 			history.append(next_state)
 
-		menu = self._findMenu(self.menu, next_state)
-		if not menu:
+		if not (menu := self._findMenu(next_state)):
 			menu = self.menu
 		if 'callback' in menu:
-			text, buttons = menu['callback'](update, context, menu)
+			text, *buttons = menu['callback'](update, context, menu)
 		else:
-			text, buttons = menu['msg'], menu['buttons']
+			text, *buttons = (menu['msg'],)
+		if 'buttons' in menu:
+			buttons += menu['buttons']
 
 		context.user_data.pop('user_input', None)
 		if text:
@@ -65,36 +60,38 @@ class MenuHandler(Handler):
 			self._sendMessage(update, context, text, buttons, old_messages)
 
 	def _getNextState(self, update, context, history):
-		if update.callback_query:
+		# if from button
+		if update.callback_query.data:
 			if update.callback_query.data == 'back':
-				if len(history) > 1:
-					del history[-1:]
-					update.callback_query.data = history[-1]
-				else:
-					update.callback_query.data = 'main'
+				del history[-1]
+				return history[-1]
 			elif re.match(r'^confirm', update.callback_query.data):
-				context.user_data['validated_input'] =\
-					update.callback_query.data.replace('confirm_', '', 1)
-				update.callback_query.data = history[-1]
-		else:
-			message = update.effective_message
-			context.user_data['old_messages'].append(message)
-			update.callback_query = CallbackQuery(
-				0, update.effective_user, update.effective_chat,
-				data='main' if message.text == '/start' or not history
-					else 'admin' if message.text == '/admin' else history[-1]
-			)
-			context.user_data['user_input'] = message.text
-		return update.callback_query.data
+				context.user_data['validated_input'] = re.sub(
+					r'^confirm_', '', update.callback_query.data)
+				return history[-1]
+			return update.callback_query.data
 
-	def _findMenu(self, menu, next_state):
-		if 'next' in menu:
-			for next_menu_key, next_menu in menu['next'].items():
-				if re.match(next_menu_key, next_state):
-					return next_menu
-				deeper_result = self._findMenu(next_menu, next_state)
-				if deeper_result:
-					return deeper_result
+		# elif from message
+		message = update.effective_message
+		context.user_data['old_messages'].append(message)
+		if not message.text:
+			context.user_data['user_input'] = message.effective_attachment
+		elif message.text == '/start':
+			return 'main'
+		elif message.text == '/admin':
+			return 'admin'
+		else:
+			context.user_data['user_input'] = message.text
+		return history[-1]
+
+	def _findMenu(self, next_state, menu=None):
+		if menu is None:
+			menu = self.menu
+		for next_menu_key, next_menu in menu.get('next', {}).items():
+			if re.match(next_menu_key, next_state):
+				return next_menu
+			if deeper_result := self._findMenu(next_state, next_menu):
+				return deeper_result
 		return None
 
 	def _sendMessage(self, update, context, text, buttons, old_messages):
@@ -106,10 +103,6 @@ class MenuHandler(Handler):
 			i = max_lines_index + 1
 		messages.append(text[i:])
 		for message in messages:
-			old_messages.append(
-				update.effective_chat.send_message(
-					message,
-					reply_markup=InlineKeyboardMarkup(buttons)
-						if message == messages[-1] and buttons else None
-				)
-			)
+			old_messages.append(update.effective_chat.send_message(message))
+		old_messages[-1].edit_reply_markup(
+			reply_markup=InlineKeyboardMarkup(buttons))
