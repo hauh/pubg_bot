@@ -39,9 +39,6 @@ admin_warnings = {
 		'reply_markup': InlineKeyboardMarkup(
 			[[InlineKeyboardButton(texts.goto_qiwi, url=config.qiwi_url)]])
 	},
-	'prizes': {
-		'text': texts.match_has_ended
-	},
 }
 
 

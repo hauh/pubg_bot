@@ -1,3 +1,5 @@
+"""Admin menu"""
+
 import re
 
 from telegram import ChatAction
@@ -68,7 +70,7 @@ def manage_matches(update, context, menu=manage_matches_menu):
 	games = context.bot_data.get('games', [])
 	games_buttons = []
 	for game in sorted(games, key=lambda game: game.time):
-		if game.running:
+		if game.started:
 			games_buttons.append(utility.create_button(
 				menu['btn_template'].format(
 					status='🏆', room_id=game.pubg_id, game=str(game)),
@@ -138,7 +140,6 @@ def set_winners(update, context, game, menu=set_winners_menu):
 
 	# if winners are set and confirmed mark game as finished for job worker
 	if context.user_data.pop('validated_input', None) and game.winners_are_set:
-		game.running = False
 		game.finished = True
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		del context.user_data['history'][-1]

@@ -20,7 +20,7 @@ def matches_main(update, context, menu=matches_menu):
 	slots_buttons = []
 	for slot in picked_slots:
 		slots_buttons.append(utility.create_button(
-			f"{slot.time.strftime('%H:%M')} - {texts.leave_match}",
+			f"{slot.time.strftime('%H:%M')} - {texts.leave_slot}",
 			f'slot_{slot.slot_id}'
 		))
 	if len(picked_slots) < 3:

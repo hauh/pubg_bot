@@ -11,7 +11,7 @@ class Slot:
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 		self.players = dict()
 		self.prize_fund = 0
-		self.running = self.finished = False
+		self.started = self.finished = False
 		self.pubg_id = self.room_pass = None
 
 	def __str__(self):
