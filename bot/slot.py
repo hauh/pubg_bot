@@ -1,3 +1,5 @@
+'''Slot class collects players, stores game info and distributes rewards'''
+
 import config
 import database
 
@@ -5,13 +7,19 @@ import database
 
 
 class Slot:
+	'''
+	Slot instantiated with a specifict datetime.time (game start time).	Slot
+	stores and updates database with joined or left players, game settings,
+	game room id and password, and prizes, which Slot can calculate for every
+	player and yield.
+	'''
 	def __init__(self, time):
 		self.slot_id = database.create_slot(time)
 		self.time = time
 		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
 		self.players = dict()
 		self.prize_fund = 0
-		self.started = self.finished = False
+		self.is_running = self.is_finished = False
 		self.pubg_id = self.room_pass = None
 
 	def __str__(self):
@@ -105,7 +113,7 @@ class Slot:
 		if self.prize_structure['kills'] and self.total_kills:
 			kill_price = round(
 				self.prize_fund / 100.0
-				* prize_structure['kills']
+				* self.prize_structure['kills']
 				/ self.total_kills
 			)
 		else:

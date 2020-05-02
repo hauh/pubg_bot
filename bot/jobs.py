@@ -1,11 +1,12 @@
-from datetime import datetime, timedelta
-from logging import getLogger
+'''Jobs checking slots to start and games to run'''
 
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from logging import getLogger
+from datetime import datetime, timedelta
 
 import config
 import texts
 import database
+import utility
 from slot import Slot
 
 ###############
@@ -17,31 +18,30 @@ SLOT_INTERVAL = timedelta(minutes=config.times['slot_interval'])
 SEND_ROOM_BEFORE = timedelta(minutes=config.times['send_room'])
 DELETE_SLOT_MESSAGE_TIME = timedelta(hours=3)
 
-goto_admin_button = InlineKeyboardMarkup(
-	[[InlineKeyboardButton(texts.goto_admin, callback_data='manage_matches')]])
 
-
-def check_slots(context):
+def check_slots_and_games(context):
 	now = datetime.now(config.timezone)
 	waiting_slots = []
+	running_games = []
 
+	# checking waiting slots
 	for slot in context.bot_data.setdefault('slots', []):
 		# requesting room id and pass and waiting for start
 		if slot.is_ready:
-			messages = [context.bot.send_message(
-				config.admin_group_id,
-				texts.slot_ready.format(str(slot)),
-				reply_markup=goto_admin_button
-			)]
-			warning_time = slot.time - SEND_ROOM_BEFORE
-			message_text = texts.match_is_starting_soon.format(str(slot))
-			for user_id in slot.players:
-				messages.append(context.bot.send_message(user_id, message_text))
+			running_games.append(slot)
+			next_step_time = slot.time - SEND_ROOM_BEFORE
+			utility.notify_admins(
+				texts.slot_is_ready.format(str(slot)),
+				context, expires=next_step_time
+			)
+			utility.notify(
+				slot.players,
+				texts.match_is_starting_soon.format(str(slot)),
+				context, expires=next_step_time
+			)
 			context.job_queue.run_once(
-				_delete_game_messages, warning_time, context=messages)
-			context.job_queue.run_once(
-				_start_game, warning_time, context=slot)
-			logger.info(f"Slot [{str(slot)}] is ready, waiting for room and pass")
+				_start_game, next_step_time, context=slot)
+			logger.info("Slot [{}] is waiting for room and pass", str(slot))
 
 		# deleting expired slot
 		elif slot.time + CLOSE_TIME >= now:
@@ -61,13 +61,10 @@ def check_slots(context):
 
 	context.bot_data['slots'] = waiting_slots
 
-
-def check_games(context):
-	running_games = []
-
+	# checking games
 	for game in context.bot_data.setdefault('games', []):
 		# waiting for results
-		if not game.finished:
+		if not game.is_finished:
 			running_games.append(game)
 			continue
 
@@ -78,25 +75,26 @@ def check_games(context):
 			player_data['balance'] += prize
 			player_data['picked_slots'].discard(game)
 			total_payouts += prize
-			context.bot.send_message(
-				user_id,
+			utility.notify(
+				[user_id],
 				texts.victory.format(
 					game=str(game),
 					place=texts.winner_place.format(place) if place else "",
 					kills=texts.kills_count.format(kills) if kills else "",
 					prize=prize
-				)
+				),
+				context
 			)
-		context.bot.send_message(
-			config.admin_group_id,
+		utility.notify_admins(
 			texts.match_ended.format(
 				game=str(game), pubg_id=game.pubg_id,
 				total_bets=game.prize_fund, prizes=total_payouts
-			)
+			),
+			context
 		)
 		logger.info(
-			f"Game {game.slot_id} (PUBG ID {game.pubg_id}) finished, "
-			f"total bets: {game.prize_fund}, payouts: {total_payouts}"
+			"Game {} (PUBG ID {}) finished, total bets: {}, payouts: {}",
+			game.slot_id, game.pubg_id, game.prize_fund, total_payouts
 		)
 		del game
 
@@ -107,46 +105,36 @@ def _start_game(context):
 	game = context.job.context
 	if not game.is_room_set:
 		logger.error(
-			f"Game {game.slot_id} - {str(game)} canceled "
-			"because no room for it was created!"
+			"Game {} - {} canceled because no room for it was created!",
+			game.slot_id, str(game)
 		)
-		context.bot.send_message(
-			config.admin_group_id,
-			texts.match_failed.format(str(game))
-		)
-		return _delete_slot(context, game)
+		utility.notify_admins(texts.match_failed.format(str(game)), context)
+		_delete_slot(context, game)
+		return
 
-	messages = [context.bot.send_message(
-		config.admin_group_id,
-		texts.match_started.format(str(game), game.pubg_id)
-	)]
-	message_text = texts.match_is_nigh.format(
-		slot=str(game), room_name=game.pubg_id, room_pass=game.room_pass)
-	for user_id in game.players:
-		messages.append(context.bot.send_message(user_id, message_text))
-	context.job_queue.run_once(
-		_delete_game_messages, DELETE_SLOT_MESSAGE_TIME, context=messages)
+	utility.notify_admins(
+		texts.match_started.format(str(game), game.pubg_id),
+		context, expires=DELETE_SLOT_MESSAGE_TIME
+	)
+	utility.notify(
+		game.players,
+		texts.match_is_nigh.format(str(game), game.pubg_id, game.room_pass),
+		context, expires=DELETE_SLOT_MESSAGE_TIME
+	)
+	game.is_running = True
 	context.bot_data.setdefault('games', []).append(game)
-	logger.info(f"Game {game.slot_id} - {str(game)} started!")
+	logger.info("Game {} - {} started!", game.slot_id, str(game))
 
 
 def _delete_slot(context, slot):
 	database.delete_slot(slot.slot_id)
-	message_text = texts.match_didnt_happen.format(str(slot))
-	messages = []
 	for user_id in slot.players:
 		player_data = context.dispatcher.user_data.get(user_id)
 		player_data['balance'] += slot.bet
 		player_data['picked_slots'].discard(slot)
-		messages.append(context.bot.send_message(user_id, message_text))
-		context.job_queue.run_once(
-			_delete_game_messages, DELETE_SLOT_MESSAGE_TIME, context=messages)
+	utility.notify(
+		slot.players,
+		texts.match_didnt_happen.format(str(slot)),
+		context, expires=DELETE_SLOT_MESSAGE_TIME
+	)
 	del slot
-
-
-def _delete_game_messages(context):
-	for message in context.job.context:
-		try:
-			message.delete()
-		except Exception:
-			pass

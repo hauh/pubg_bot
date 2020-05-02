@@ -1,12 +1,14 @@
+'''Reading and creating excel files'''
+
 from io import BytesIO, BufferedWriter
+from zipfile import BadZipFile
 
 import openpyxl
 from openpyxl.styles.numbers import FORMAT_NUMBER
-from zipfile import BadZipFile
 
 ##############################
 
-columns = [
+PLAYERS_TABLE_COLUMNS = [  # with width
 	('PUBG ID', 12),
 	('PUBG Username', 20),
 	('Telegram ID', 12),
@@ -20,7 +22,7 @@ def create_table(players):
 	players_table = openpyxl.Workbook()
 	sheet = players_table.active
 
-	for index, column_name in enumerate(columns, start=1):
+	for index, column_name in enumerate(PLAYERS_TABLE_COLUMNS, start=1):
 		name, width = column_name
 		sheet.cell(1, index, name)
 		sheet.column_dimensions[str(chr(64 + index))].width = width

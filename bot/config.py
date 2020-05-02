@@ -1,3 +1,5 @@
+'''Configuration file'''
+
 import os
 import logging
 import pytz

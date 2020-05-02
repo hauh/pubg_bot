@@ -1,3 +1,5 @@
+'''Postgress database queries'''
+
 init_db = (
 	"""
 	SET timezone = 'Europe/Moscow'
@@ -50,7 +52,6 @@ init_db = (
 	)
 	""",
 )
-
 
 # users
 save_user =\

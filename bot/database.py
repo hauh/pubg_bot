@@ -1,3 +1,5 @@
+'''Postgress database operations'''
+
 from logging import getLogger
 
 import psycopg2
@@ -42,7 +44,7 @@ def prepare_DB(cursor):
 @with_connection
 def save_user(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
-	logger.info(f"New user {user_id} has been registered")
+	logger.info("New user {} has been registered", user_id)
 	return cursor.fetchone()
 
 
@@ -52,7 +54,7 @@ def get_user(cursor, **search_parameters):
 	if search_parameters:
 		get_user_query += SQL('WHERE') + SQL('AND').join(
 			[SQL('({} = %s)').format(Identifier(key))
-				for key in search_parameters.keys()]
+				for key in search_parameters]
 		)
 	cursor.execute(get_user_query, tuple(search_parameters.values()))
 	if cursor.rowcount == 1:
@@ -70,7 +72,7 @@ def update_user(cursor, user_id, **new_values):
 		)
 		if cursor.rowcount:
 			updated_rows += 1
-			logger.info(f"User id {user_id} updated: {column} = {value}")
+			logger.info("User id {} updated: {} = {}", user_id, column, value)
 	return updated_rows == len(new_values)
 
 
@@ -106,7 +108,7 @@ def update_slot(cursor, slot_id, **updated):
 def delete_slot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
 	if cursor.rowcount > 1:
-		logger.info(f"Slot id {slot_id} was canceled")
+		logger.info("Slot id {} was canceled", slot_id)
 
 
 @with_connection
@@ -139,7 +141,7 @@ def get_players(cursor, game_id):
 @with_connection
 def set_player_result(cursor, slot_id, user_id, result, value):
 	cursor.execute(
-		SQL(queries.set_player_results).format(Identifier(result)),
+		SQL(queries.set_player_result).format(Identifier(result)),
 		(value, slot_id, user_id)
 	)
 
@@ -152,7 +154,8 @@ def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 		(user_id, amount, reason, ext_id, slot_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
-	logger.info(f"Balance of user id {user_id} changed for {amount}: {reason}")
+	logger.info(
+		"Balance of user id {} changed for {}: {}", user_id, amount, reason)
 	return cursor.fetchone()
 
 
@@ -164,7 +167,7 @@ def withdraw_money(cursor, user_id, **details):
 	)
 	if not (qiwi_id := qiwi.make_payment(**details)):
 		cursor.connection.rollback()
-		logger.error(f"Withdraw for user id {user_id} ({details}) failed")
+		logger.error("Withdraw for user id {} ({}) failed", user_id, details)
 		return None
 	transaction_id = cursor.fetchone()
 	cursor.execute(
@@ -172,5 +175,5 @@ def withdraw_money(cursor, user_id, **details):
 		(qiwi_id, transaction_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
-	logger.error(f"User id {user_id} withdrew {details['amount']}")
+	logger.error("User id {} withdrew {}", user_id, details['amount'])
 	return cursor.fetchone()

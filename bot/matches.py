@@ -1,3 +1,5 @@
+'''Menu where user creates and picks slots'''
+
 import texts
 import utility
 
@@ -14,30 +16,27 @@ def matches_main(update, context, menu=matches_menu):
 		return (None,)
 
 	picked_slots = context.user_data.setdefault('picked_slots', set())
-	all_slots = context.bot_data.get('slots')
-	for expired_slot in picked_slots - set(all_slots):
-		picked_slots.discard(expired_slot)
 	slots_buttons = []
 	for slot in picked_slots:
-		slots_buttons.append(utility.create_button(
-			f"{slot.time.strftime('%H:%M')} - {texts.leave_slot}",
-			f'slot_{slot.slot_id}'
-		))
+		if not slot.is_ready:
+			slots_buttons.append(utility.button(
+				f'slot_{slot.slot_id}',
+				f"{slot.time.strftime('%H:%M')} - {texts.leave_slot}"
+			))
 	if len(picked_slots) < 3:
-		for slot in all_slots:
+		for slot in context.bot_data.get('slots', []):
 			if not slot.players:
 				text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
 			elif slot.is_full:
 				text = f"{slot.time.strftime('%H:%M')} - {texts.full_slot}"
 			else:
 				text = str(slot)
-			slots_buttons.append(utility.create_button(
-				text, f'slot_{slot.slot_id}'))
+			slots_buttons.append(utility.button(f'slot_{slot.slot_id}', text))
 	return (
 		menu['msg'].format(
 			balance=context.user_data['balance'],
 			matches='\n'.join(str(slot) for slot in picked_slots)
-				if picked else menu['default']
+				if picked_slots else menu['default']
 		),
 		*slots_buttons
 	)
@@ -69,6 +68,8 @@ def pick_slot(update, context, menu):
 
 	# leave if already joined
 	if slot in context.user_data['picked_slots']:
+		if slot.is_ready:
+			return done('too_late')
 		context.user_data['picked_slots'].remove(slot)
 		bet = slot.bet
 		slot.leave(update.effective_user.id)
@@ -123,8 +124,9 @@ def get_slot_setting(update, context, menu):
 
 ##############################
 
-matches_menu['callback'] = matches_main
-matches_menu['next']['slot_']['callback'] = pick_slot
-for setting_menu in matches_menu['next']['slot_']['next'].values():
-	for setting_choice in setting_menu['next'].values():
-		setting_choice['callback'] = get_slot_setting
+def add_callbacks():
+	matches_menu['callback'] = matches_main
+	matches_menu['next']['slot_']['callback'] = pick_slot
+	for setting_menu in matches_menu['next']['slot_']['next'].values():
+		for setting_choice in setting_menu['next'].values():
+			setting_choice['callback'] = get_slot_setting

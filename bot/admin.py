@@ -1,8 +1,9 @@
-"""Admin menu"""
+'''Admin menu'''
 
 import re
 
 from telegram import ChatAction
+from telegram.error import TelegramError, Unauthorized
 
 import texts
 import database
@@ -51,7 +52,7 @@ def revoke_admin(update, context, menu):
 		return switch_admin(update, context, menu, int(admin_id), False)
 
 	admins_buttons = [
-		utility.create_button(f"@{admin['username']}", f"confirm_{admin['id']}")
+		utility.confirm_button(admin['id'], f"@{admin['username']}")
 		for admin in database.get_user(admin=True)
 	]
 	return (menu['msg'], *admins_buttons)
@@ -67,20 +68,19 @@ def switch_admin(update, context, menu, admin_id, new_state):
 
 @with_admin_rights
 def manage_matches(update, context, menu=manage_matches_menu):
-	games = context.bot_data.get('games', [])
 	games_buttons = []
-	for game in sorted(games, key=lambda game: game.time):
-		if game.started:
-			games_buttons.append(utility.create_button(
-				menu['btn_template'].format(
-					status='🏆', room_id=game.pubg_id, game=str(game)),
-				f"set_winners_{game.slot_id}"
-			))
-		elif not game.finished:
-			games_buttons.append(utility.create_button(
+	for game in context.bot_data.get('games', []):
+		if not game.is_running:
+			games_buttons.append(utility.button(
+				f"set_room_id_{game.slot_id}",
 				menu['btn_template'].format(
 					status='🕑', room_id=game.pubg_id, game=str(game)),
-				f"set_room_id_{game.slot_id}"
+			))
+		elif not game.is_finished:
+			games_buttons.append(utility.button(
+				f"set_winners_{game.slot_id}",
+				menu['btn_template'].format(
+					status='🏆', room_id=game.pubg_id, game=str(game)),
 			))
 	return (menu['msg'], *games_buttons)
 
@@ -89,7 +89,7 @@ def with_game_to_manage(manage_game_func):
 	def find_game(update, context, *menu):
 		current_game_id = int(context.user_data['history'][-1].split('_')[-1])
 		for game in context.bot_data.get('games', []):
-			if game.slot_id == current_game_id and not game.finished:
+			if game.slot_id == current_game_id and not game.is_finished:
 				return manage_game_func(update, context, game, *menu)
 		return manage_matches(update, context)
 	return find_game
@@ -140,13 +140,13 @@ def set_winners(update, context, game, menu=set_winners_menu):
 
 	# if winners are set and confirmed mark game as finished for job worker
 	if context.user_data.pop('validated_input', None) and game.winners_are_set:
-		game.finished = True
+		game.is_finished = True
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		del context.user_data['history'][-1]
 		return manage_matches(update, context)
 
-	generate_table_button = utility.create_button(
-		menu['btn_template'], f'generate_table_{game.slot_id}')
+	generate_table_button = utility.button(
+		f'generate_table_{game.slot_id}', menu['btn_template'])
 
 	# if no file was uploaded ask for winners table
 	if not (winners_file := context.user_data.pop('user_input', None)):
@@ -205,12 +205,14 @@ def mailing(update, context, menu):
 	def spam(context):
 		try:
 			context.bot.send_message(*context.job.context)
-		except Exception:
+		except Unauthorized:
+			database.update_user(context.job.context[0], banned=True)
+		except TelegramError:
 			pass
 
 	# if confirmed start spam
 	if context.user_data.pop('validated_input', None):
-		users = database.get_user(admin=False)
+		users = database.get_user(admin=False, banned=False)
 		spam_message = context.bot_data.pop('spam_message')
 		for delay, user in enumerate(users):
 			context.job_queue.run_once(
@@ -232,14 +234,15 @@ def mailing(update, context, menu):
 
 ##############################
 
-admin_menu['callback'] = admin_main
-admin_menu['next']['mailing']['callback'] = mailing
+def add_callbacks():
+	admin_menu['callback'] = admin_main
+	admin_menu['next']['mailing']['callback'] = mailing
 
-manage_admins_menu['next']['add_admin']['callback'] = add_admin
-manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
+	manage_admins_menu['next']['add_admin']['callback'] = add_admin
+	manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
 
-manage_matches_menu['callback'] = manage_matches
-manage_matches_menu['next']['set_room_']['callback'] = set_room
+	manage_matches_menu['callback'] = manage_matches
+	manage_matches_menu['next']['set_room_']['callback'] = set_room
 
-set_winners_menu['callback'] = set_winners
-set_winners_menu['next']['generate_table_']['callback'] = generate_table
+	set_winners_menu['callback'] = set_winners
+	set_winners_menu['next']['generate_table_']['callback'] = generate_table

@@ -1,3 +1,5 @@
+'''User profile management'''
+
 import re
 import random
 
@@ -29,15 +31,14 @@ def profile_main(update, context, menu=profile_menu):
 def balance_history(update, context, menu):
 	if not (history := database.get_balance_history(update.effective_user.id)):
 		return (menu['msg'],)
-	for balance_entry in history:
-		amount = balance_entry['amount']
-		answer += "{arrow} \[{id}: {date}] *{amount}*\n".format(
-			arrow='➡' if amount > 0 else '⬅',
+	return (
+		"\n".join(["{arrow} \\[{id}: {date}] *{amount}*\n".format(
+			arrow='➡' if balance_entry['amount'] > 0 else '⬅',
 			id=balance_entry['id'],
 			date=balance_entry['date'].strftime("%Y.%m.%d %H:%M"),
-			amount=amount
-		)
-	return (answer,)
+			amount=balance_entry['amount']
+		) for balance_entry in history]),
+	)
 
 
 def with_input(setter):
@@ -46,7 +47,8 @@ def with_input(setter):
 		if validated_input := context.user_data.pop('validated_input', None):
 			answer, back = setter(update, context, validated_input, validated=True)
 			if answer:
-				update.callback_query.answer(menu['answers'][answer], show_alert=True)
+				update.callback_query.answer(
+					menu['answers'][answer], show_alert=True)
 			if back:
 				del context.user_data['history'][-1]
 				return back(update, context)
@@ -97,16 +99,16 @@ def add_funds(update, context, menu=add_funds_menu):
 	return (menu['msg'].format(payment_code),)
 
 
-def check_payment(update, context, menu):
+def check_income(update, context, menu):
 	update.effective_chat.send_action(ChatAction.TYPING)
-	if not (payment := qiwi.check_history(context.user_data['payment_code'])):
+	if not (payment := qiwi.find_income(context.user_data['payment_code'])):
 		update.callback_query.answer(menu['answers']['nothing'], show_alert=True)
 		del context.user_data['history'][-1]
 		return add_funds(update, context)
 
 	amount, qiwi_id = payment
 	context.user_data['balance'] = database.change_balance(
-		update.effective_user.id, amount, 'income_qiwi', external_id=qiwi_id)
+		update.effective_user.id, amount, 'income_qiwi', ext_id=qiwi_id)
 	update.callback_query.answer(
 		menu['answers']['success'].format(amount), show_alert=True)
 	del context.user_data['payment_code']
@@ -143,7 +145,8 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 	user_id = update.effective_user.id
 
 	# not enough money
-	if (context.user_data['balance'] := database.get_balance(user_id)) < total:
+	if (current_balance := database.get_balance(user_id)) < total:
+		context.user_data['balance'] = current_balance
 		del context.user_data['withdraw_details']['amount']
 		update.callback_query.answer(menu['answers']['too_much'], show_alert=True)
 		return (message,)
@@ -155,7 +158,7 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 
 	# withdraw failed
 	else:
-		utility.message_admins(context.bot, 'qiwi_failed')
+		utility.notify_admins(texts.qiwi_error, context)
 		update.callback_query.answer(menu['answers']['error'], show_alert=True)
 
 	del context.user_data['withdraw_details']['amount']
@@ -176,8 +179,7 @@ def get_withdraw_account(update, context, user_input, validated):
 	if not validated:
 		match_qiwi = re.match(r'^7[0-9]{10}$', user_input)
 		match_card = re.match(r'^[0-9]{16}$', user_input)
-		provider = details.get('provider')
-		if provider is not None:
+		if (provider := details.get('provider')) is not None:
 			if provider == 'qiwi':
 				return match_qiwi
 			return match_card
@@ -201,16 +203,17 @@ def get_withdraw_amount(update, context, user_input, validated):
 
 ##############################
 
-profile_menu['callback'] = profile_main
-profile_menu['next']['set_pubg_id']['callback'] = set_pubg_id
-profile_menu['next']['set_pubg_username']['callback'] = set_pubg_username
-profile_menu['next']['balance_history']['callback'] = balance_history
+def add_callbacks():
+	profile_menu['callback'] = profile_main
+	profile_menu['next']['set_pubg_id']['callback'] = set_pubg_id
+	profile_menu['next']['set_pubg_username']['callback'] = set_pubg_username
+	profile_menu['next']['balance_history']['callback'] = balance_history
 
-add_funds_menu['callback'] = add_funds
-add_funds_menu['next']['next']['check_payment']['callback'] = check_payment
+	add_funds_menu['callback'] = add_funds
+	add_funds_menu['next']['check_income']['callback'] = check_income
 
-withdraw_money_menu['callback'] = withdraw_money
-for provider in withdraw_money_menu['next']['provider']['next'].values():
-	provider['callback'] = get_withdraw_provider
-withdraw_money_menu['next']['account']['callback'] = get_withdraw_account
-withdraw_money_menu['next']['amount']['callback'] = get_withdraw_amount
+	withdraw_money_menu['callback'] = withdraw_money
+	for provider in withdraw_money_menu['next']['provider']['next'].values():
+		provider['callback'] = get_withdraw_provider
+	withdraw_money_menu['next']['account']['callback'] = get_withdraw_account
+	withdraw_money_menu['next']['amount']['callback'] = get_withdraw_amount

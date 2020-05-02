@@ -1,14 +1,20 @@
+'''Main, bot starts here'''
+
 import sys
 from logging import getLogger
 
-from telegram import ParseMode, InlineKeyboardMarkup
-from telegram.ext import Defaults, Updater, Filters, CallbackQueryHandler
+from telegram import ParseMode
+from telegram.ext import Defaults, Updater
 
 import config
 import database
 import texts
 import jobs
 import utility
+import admin
+import matches
+import cabinet
+
 from menu_handler import MenuHandler
 
 ########################
@@ -16,32 +22,7 @@ from menu_handler import MenuHandler
 logger = getLogger('bot')
 
 
-def test(context):
-	from slot import Slot
-	import random
-	import datetime
-	games = context.bot_data.setdefault('games', set())
-	slot = Slot(datetime.datetime.now())
-	slot.settings.update({
-		'type': 'kills',
-		'mode': 'solo',
-		'view': '1st',
-		'bet': 30,
-	})
-	count = 0
-	for user in database.get_user():
-		count += 1
-		print(count)
-		if count == 3:
-			break
-		slot.join(user['id'])
-	slot.started = True
-	games.add(slot)
-
-
 def start(update, context, menu):
-	test(context)
-
 	user_id = int(update.effective_user.id)
 	username = update.effective_user.username
 	if not (user := database.get_user(id=user_id)):
@@ -64,42 +45,55 @@ def start(update, context, menu):
 def error(update, context):
 	history = context.user_data.get('history') if context.user_data else None
 	logger.error(
-		f"User chat history: {history}",
+		"User chat history: {}", history,
 		exc_info=(type(context.error), context.error, None)
 	)
 	if update.callback_query:
 		update.callback_query.answer(texts.error, show_alert=True)
-	elif coontext.user_data:
-		context.user_data.setdefault('old_messages', []).append(
-			update.effective_chat.send_message(texts.error))
-
-
-def gotoAdmin(update, context):
-	text, buttons = admin.manageMatches(
-		update, context, texts.menu['next']['admin']['next']['manage_matches'])
-	context.user_data['history'] = ['manage_matches']
-	if text:
+	if context.user_data:
 		old_messages = context.user_data.setdefault('old_messages', [])
-		MenuHandler.cleanChat(old_messages)
-		old_messages.append(
-			update.effective_user.send_message(
-				text, reply_markup=InlineKeyboardMarkup(buttons))
-		)
+		MenuHandler.clean_chat(old_messages)
+		MenuHandler.send_message(
+			update, texts.menu['msg'], texts.menu['buttons'], old_messages)
+
+
+def init_menu():
+	def add_buttons(menu, depth=0):
+		buttons = []
+		for key, next_menu in menu.get('next', {}).items():
+			if 'btn' in next_menu:
+				buttons.append(utility.button(key, next_menu['btn']))
+			add_buttons(next_menu, depth + 1)
+		if depth:
+			buttons.append(back_button + main_button if depth > 1 else [])
+		menu['buttons'] = buttons
+		for key, text in menu.get('extra_buttons', {}).items():
+			menu['extra_buttons'][key] = utility.button(key, text)
+
+	# adding buttons to menu
+	back_button = utility.button('_back_', texts.back)
+	main_button = utility.button('_main_', texts.main)
+	add_buttons(texts.menu)
+	texts.menu['buttons'][4][0].url = config.battle_chat
+
+	# adding callbacks to menu
+	texts.menu['callback'] = start
+	admin.add_callbacks()
+	matches.add_callbacks()
+	cabinet.add_callbacks()
 
 
 def main():
 	try:
 		database.prepare_DB()
-	except Exception as err:
+	except Exception as err:  # pylint: disable=broad-except
 		logger.critical(
 			"Database connection failed with:",
 			exc_info=(type(err), err, None)
 		)
 		sys.exit(-1)
 
-	utility.add_buttons_to_menu()
-	import admin
-	texts.menu['callback'] = start
+	init_menu()
 
 	updater = Updater(
 		token=config.bot_token,
@@ -107,12 +101,10 @@ def main():
 		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
 	)
 
-	# updater.job_queue.run_repeating(jobs.checkSlots, 10, first=0)
-
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
-	updater.dispatcher.add_handler(
-		CallbackQueryHandler(gotoAdmin, pattern='manage_matches'))
 	updater.dispatcher.add_error_handler(error)
+
+	updater.job_queue.run_repeating(jobs.check_slots_and_games, 5, first=0)
 
 	logger.info("Bot started")
 
