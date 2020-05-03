@@ -11,12 +11,12 @@ from telegram.constants import MAX_MESSAGE_LENGTH
 class MenuHandler(Handler):
 	'''
 	If there is callback_data from button MenuHandler will search for callback
-	in self.menu. That callback should return message and extra buttons (if any).
-	If there is no callback in menu, MenuHandler will use messsage from menu
-	for that button. There are special cases: '_back_', '_main_', and '_confirm_'.
-	The latter fills 'validated_input' with whatever else was with 'confirm'
-	and calls previous callback. If there is a message from user, handler fills
-	'user_input' in user_data and calls previous callback unless it's a command.
+	in self.menu. That callback should return message and buttons. If there is
+	no callback in menu, MenuHandler will use messsage from menu for that
+	button. There are special cases: '_back_', '_main_', and '_confirm_'. The
+	latter fills 'validated_input' with whatever else was with 'confirm' and
+	calls previous callback. If there is a message from user, handler fills
+	'user_input' in user_data and calls previous callback.
 	'''
 
 	def __init__(self, menu):
@@ -24,7 +24,9 @@ class MenuHandler(Handler):
 		super(MenuHandler, self).__init__(callback=None)
 
 	@staticmethod
-	def clean_chat(old_messages):
+	def send_message(update, text, buttons, old_messages):
+		'''Sending message in chunks if it's too big splitted by newlines'''
+		# first cleaning up old messages
 		for message in old_messages:
 			try:
 				message.delete()
@@ -32,15 +34,15 @@ class MenuHandler(Handler):
 				pass
 		old_messages.clear()
 
-	@staticmethod
-	def send_message(update, text, buttons, old_messages):
-		'''Sending message in chunks if it's too big splitted by newlines'''
+		# then partitioning text
 		messages, i = [], 0
 		while i + MAX_MESSAGE_LENGTH < len(text):
 			max_lines_index = text.rfind('\n', i, i + MAX_MESSAGE_LENGTH)
 			messages.append(text[i:max_lines_index])
 			i = max_lines_index + 1
 		messages.append(text[i:])
+
+		# finally sending and storing messages to delete next time
 		for message in messages:
 			old_messages.append(update.effective_chat.send_message(message))
 		if any(buttons):
@@ -77,18 +79,15 @@ class MenuHandler(Handler):
 		or not (menu := MenuHandler._find_menu(next_state, self.menu))):
 			menu = self.menu
 		if 'callback' in menu:
-			text, *buttons = menu['callback'](update, context, menu)
+			text, buttons = menu['callback'](update, context, menu)
 		else:
-			text, *buttons = (menu['msg'],)
-		if 'buttons' in menu:
-			buttons += menu['buttons']
+			text, buttons = menu['msg'], menu['buttons']
 
 		# clearing user_input
 		context.user_data.pop('user_input', None)
 		context.user_data.pop('validated_input', None)
 
 		if text:
-			MenuHandler.clean_chat(old_messages)
 			MenuHandler.send_message(update, text, buttons, old_messages)
 
 	@staticmethod

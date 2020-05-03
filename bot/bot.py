@@ -38,8 +38,8 @@ def start(update, context, menu):
 		user['admin'] = True
 	context.user_data.update(user)
 	if user['admin']:
-		return (menu['msg'], menu['extra_buttons']['admin'])
-	return (menu['msg'],)
+		return (menu['msg'], [menu['extra_buttons']['admin']] + menu['buttons'])
+	return (menu['msg'], menu['buttons'])
 
 
 def error(update, context):
@@ -47,10 +47,10 @@ def error(update, context):
 		update.callback_query.answer(texts.error, show_alert=True)
 	if context.user_data:
 		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
-		old_messages = context.user_data.setdefault('old_messages', [])
-		MenuHandler.clean_chat(old_messages)
 		MenuHandler.send_message(
-			update, texts.menu['msg'], texts.menu['buttons'], old_messages)
+			update, *start(update, context, texts.menu),
+			context.user_data.setdefault('old_messages', [])
+		)
 	else:
 		log_entry = "Bot broke down!"
 	logger.error(log_entry, exc_info=(type(context.error), context.error, None))

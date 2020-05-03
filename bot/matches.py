@@ -13,7 +13,7 @@ def matches_main(update, context, menu=matches_menu):
 	or not context.user_data.get('pubg_username')):
 		update.callback_query.answer(menu['answers']['pubg_required'])
 		del context.user_data['history'][-1]
-		return (None,)
+		return (None, None)
 
 	picked_slots = context.user_data.setdefault('picked_slots', set())
 	slots_buttons = []
@@ -38,7 +38,7 @@ def matches_main(update, context, menu=matches_menu):
 			matches='\n'.join(str(slot) for slot in picked_slots)
 				if picked_slots else menu['default']
 		),
-		*slots_buttons
+		slots_buttons + menu['buttons']
 	)
 
 
@@ -111,8 +111,8 @@ def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 		}
 	)
 	if not all(settings.values()):
-		return (answer,)
-	return (answer, utility.confirm_button('slot_setup'))
+		return (answer, menu['buttons'])
+	return (answer, [utility.confirm_button('slot_setup')] + menu['buttons'])
 
 
 def get_slot_setting(update, context, menu):

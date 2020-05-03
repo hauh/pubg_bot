@@ -25,12 +25,13 @@ def profile_main(update, context, menu=profile_menu):
 			pubg_username=context.user_data['pubg_id'] or '-',
 			balance=context.user_data['balance'],
 		),
+		menu['buttons']
 	)
 
 
 def balance_history(update, context, menu):
 	if not (history := database.get_balance_history(update.effective_user.id)):
-		return (menu['msg'],)
+		return (menu['msg'], menu['buttons'])
 	return (
 		"\n".join(["{arrow} \\[{id}: {date}] *{amount}*\n".format(
 			arrow='➡' if balance_entry['amount'] > 0 else '⬅',
@@ -38,6 +39,7 @@ def balance_history(update, context, menu):
 			date=balance_entry['date'].strftime("%Y.%m.%d %H:%M"),
 			amount=balance_entry['amount']
 		) for balance_entry in history]),
+		menu['buttons']
 	)
 
 
@@ -55,15 +57,15 @@ def with_input(setter):
 
 		# if no input say what to do here
 		if not (user_input := context.user_data.pop('user_input', None)):
-			return (menu['msg'],)
+			return (menu['msg'], menu['buttons'])
 
 		# validate first if there is input
 		if not setter(update, context, menu, user_input, validated=False):
-			return (menu['answers']['invalid'],)
+			return (menu['answers']['invalid'], menu['buttons'])
 
 		return (
 			menu['answers']['confirm'].format(user_input),
-			utility.confirm_button(user_input)
+			[utility.confirm_button(user_input)] + menu['buttons']
 		)
 	return handle_input
 
@@ -96,7 +98,7 @@ def set_pubg_id(update, context, user_input, validated):
 def add_funds(update, context, menu=add_funds_menu):
 	payment_code = context.user_data.setdefault(
 		'payment_code', str(random.randint(100000, 999999)))
-	return (menu['msg'].format(payment_code),)
+	return (menu['msg'].format(payment_code), menu['buttons'])
 
 
 def check_income(update, context, menu):
@@ -126,12 +128,12 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 	)
 	# set all withdraw details first
 	if not all(details.values()):
-		return (message,)
+		return (message, menu['buttons'])
 
 	# checking commission
 	if (commission := qiwi.check_commission(**details)) is None:
 		update.callback_query.answer(menu['answers']['error'], show_alert=True)
-		return (message,)
+		return (message, menu['buttons'])
 
 	total = details['amount'] + commission
 
@@ -139,7 +141,7 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 	if not context.user_data.pop('validated_input', None):
 		return (
 			message + menu['answers']['commission'].format(commission, total),
-			utility.confirm_button('withdraw')
+			[utility.confirm_button('withdraw')] + menu['buttons']
 		)
 
 	user_id = update.effective_user.id
@@ -149,7 +151,7 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 		context.user_data['balance'] = current_balance
 		del context.user_data['withdraw_details']['amount']
 		update.callback_query.answer(menu['answers']['too_much'], show_alert=True)
-		return (message,)
+		return (message, menu['buttons'])
 
 	# money withdrawn
 	if (new_balance := database.withdraw_money(user_id, **details)) is not None:
