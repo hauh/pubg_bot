@@ -36,14 +36,15 @@ def add_admin(update, context, menu):
 	if admin_id := context.user_data.pop('validated_input', None):
 		return switch_admin(update, context, menu, int(admin_id), True)
 
-	user_input = context.user_data.pop('user_input', None)
-	if not (user := database.get_user(username=user_input)):
-		return (menu['answers']['not_found'],)
+	if user_input := context.user_data.pop('user_input', None):
+		if not (user := database.get_user(username=user_input)):
+			return (menu['answers']['not_found'],)
+		return (
+			menu['answers']['found'].format(user['username']),
+			utility.confirm_button(user['id'])
+		)
 
-	return (
-		menu['answers']['found'].format(user['username']),
-		utility.confirm_button(user['id'])
-	)
+	return (menu['msg'],)
 
 
 @with_admin_rights
@@ -53,7 +54,7 @@ def revoke_admin(update, context, menu):
 
 	admins_buttons = [
 		utility.confirm_button(admin['id'], f"@{admin['username']}")
-		for admin in database.get_user(admin=True)
+		for admin in database.get_user(admin=True, fetch_all=True)
 	]
 	return (menu['msg'], *admins_buttons)
 
@@ -212,7 +213,7 @@ def mailing(update, context, menu):
 
 	# if confirmed start spam
 	if context.user_data.pop('validated_input', None):
-		users = database.get_user(admin=False, banned=False)
+		users = database.get_user(admin=False, banned=False, fetch_all=True)
 		spam_message = context.bot_data.pop('spam_message')
 		for delay, user in enumerate(users):
 			context.job_queue.run_once(

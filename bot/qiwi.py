@@ -30,7 +30,7 @@ def check_balance():
 	)
 	if not response.ok:
 		logger.error(
-			"Balance check: {} ({})", response.status_code, response.json())
+			"Balance check: %s (%s)", response.status_code, response.json())
 		return 0
 	return response.json()['accounts'][0]['balance']['amount']
 
@@ -54,7 +54,7 @@ def check_commission(provider, account, amount):
 		headers=headers
 	)
 	if not com.ok:
-		logger.error("Commission check: {} ({})", com.status_code, com.json())
+		logger.error("Commission check: %s (%s)", com.status_code, com.json())
 		return None
 	return int(-(-com.json()['qwCommission']['amount'] // 1))
 
@@ -80,7 +80,7 @@ def make_payment(provider, account, amount):
 		headers=headers
 	)
 	if not payment.ok:
-		logger.error("Payment: {} ({})", payment.status_code, payment.json())
+		logger.error("Payment: %s (%s)", payment.status_code, payment.json())
 		return None
 	return payment.json()['id']
 
@@ -96,7 +96,7 @@ def find_income(code):
 	)
 	if not history.ok:
 		logger.error(
-			"Income check: {} ({})", history.status_code, history.json())
+			"Income check: %s (%s)", history.status_code, history.json())
 	else:
 		for payment in history.json()['data']:
 			if payment['comment'] == code and payment['status'] == 'SUCCESS':

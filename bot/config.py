@@ -11,6 +11,7 @@ admin_id = [int(i) for i in os.getenv('ADMIN_ID').split(',')]
 admin_group_id = os.getenv('ADMIN_GROUP_ID')
 battle_chat = os.getenv('BATTLE_CHAT_LINK')
 db_url = os.getenv('HEROKU_DB')
+proxy = os.getenv('PROXY')
 
 # qiwi
 qiwi_token = os.getenv('QIWI_TOKEN')

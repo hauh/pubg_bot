@@ -43,18 +43,17 @@ def start(update, context, menu):
 
 
 def error(update, context):
-	history = context.user_data.get('history') if context.user_data else None
-	logger.error(
-		"User chat history: {}", history,
-		exc_info=(type(context.error), context.error, None)
-	)
 	if update.callback_query:
 		update.callback_query.answer(texts.error, show_alert=True)
 	if context.user_data:
+		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
 		old_messages = context.user_data.setdefault('old_messages', [])
 		MenuHandler.clean_chat(old_messages)
 		MenuHandler.send_message(
 			update, texts.menu['msg'], texts.menu['buttons'], old_messages)
+	else:
+		log_entry = "Bot broke down!"
+	logger.error(log_entry, exc_info=(type(context.error), context.error, None))
 
 
 def init_menu():
@@ -65,7 +64,7 @@ def init_menu():
 				buttons.append(utility.button(key, next_menu['btn']))
 			add_buttons(next_menu, depth + 1)
 		if depth:
-			buttons.append(back_button + main_button if depth > 1 else [])
+			buttons.append(back_button + (main_button if depth > 1 else []))
 		menu['buttons'] = buttons
 		for key, text in menu.get('extra_buttons', {}).items():
 			menu['extra_buttons'][key] = utility.button(key, text)
@@ -98,7 +97,8 @@ def main():
 	updater = Updater(
 		token=config.bot_token,
 		use_context=True,
-		defaults=Defaults(parse_mode=ParseMode.MARKDOWN)
+		defaults=Defaults(parse_mode=ParseMode.MARKDOWN),
+		request_kwargs=dict(proxy_url=config.proxy) if config.proxy else None
 	)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))

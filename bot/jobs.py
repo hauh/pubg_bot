@@ -11,7 +11,7 @@ from slot import Slot
 
 ###############
 
-logger = getLogger(__name__)
+logger = getLogger('jobs')
 
 CLOSE_TIME = timedelta(minutes=config.times['close_slot'])
 SLOT_INTERVAL = timedelta(minutes=config.times['slot_interval'])
@@ -41,7 +41,7 @@ def check_slots_and_games(context):
 			)
 			context.job_queue.run_once(
 				_start_game, next_step_time, context=slot)
-			logger.info("Slot [{}] is waiting for room and pass", str(slot))
+			logger.info("Slot [%s] is waiting for room and pass", str(slot))
 
 		# deleting expired slot
 		elif slot.time + CLOSE_TIME >= now:
@@ -93,7 +93,7 @@ def check_slots_and_games(context):
 			context
 		)
 		logger.info(
-			"Game {} (PUBG ID {}) finished, total bets: {}, payouts: {}",
+			"Game %s (PUBG ID %s) finished, total bets: %s, payouts: %s",
 			game.slot_id, game.pubg_id, game.prize_fund, total_payouts
 		)
 		del game
@@ -105,7 +105,7 @@ def _start_game(context):
 	game = context.job.context
 	if not game.is_room_set:
 		logger.error(
-			"Game {} - {} canceled because no room for it was created!",
+			"Game %s - %s canceled because no room for it was created!",
 			game.slot_id, str(game)
 		)
 		utility.notify_admins(texts.match_failed.format(str(game)), context)
@@ -123,7 +123,7 @@ def _start_game(context):
 	)
 	game.is_running = True
 	context.bot_data.setdefault('games', []).append(game)
-	logger.info("Game {} - {} started!", game.slot_id, str(game))
+	logger.info("Game %s - %s started!", game.slot_id, str(game))
 
 
 def _delete_slot(context, slot):

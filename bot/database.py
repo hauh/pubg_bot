@@ -44,12 +44,12 @@ def prepare_DB(cursor):
 @with_connection
 def save_user(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
-	logger.info("New user {} has been registered", user_id)
+	logger.info("New user %s has been registered", user_id)
 	return cursor.fetchone()
 
 
 @with_connection
-def get_user(cursor, **search_parameters):
+def get_user(cursor, *, fetch_all=False, **search_parameters):
 	get_user_query = SQL(queries.get_user)
 	if search_parameters:
 		get_user_query += SQL('WHERE') + SQL('AND').join(
@@ -57,9 +57,9 @@ def get_user(cursor, **search_parameters):
 				for key in search_parameters]
 		)
 	cursor.execute(get_user_query, tuple(search_parameters.values()))
-	if cursor.rowcount == 1:
-		return cursor.fetchone()
-	return cursor.fetchall()
+	if fetch_all:
+		return cursor.fetchall()
+	return cursor.fetchone()
 
 
 @with_connection
@@ -72,7 +72,7 @@ def update_user(cursor, user_id, **new_values):
 		)
 		if cursor.rowcount:
 			updated_rows += 1
-			logger.info("User id {} updated: {} = {}", user_id, column, value)
+			logger.info("User id %s updated: %s = %s", user_id, column, value)
 	return updated_rows == len(new_values)
 
 
@@ -108,7 +108,7 @@ def update_slot(cursor, slot_id, **updated):
 def delete_slot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
 	if cursor.rowcount > 1:
-		logger.info("Slot id {} was canceled", slot_id)
+		logger.info("Slot id %s was canceled", slot_id)
 
 
 @with_connection
@@ -154,8 +154,7 @@ def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 		(user_id, amount, reason, ext_id, slot_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
-	logger.info(
-		"Balance of user id {} changed for {}: {}", user_id, amount, reason)
+	logger.info("Balance change for user id %s: %s %s", user_id, reason, amount)
 	return cursor.fetchone()
 
 
@@ -167,7 +166,7 @@ def withdraw_money(cursor, user_id, **details):
 	)
 	if not (qiwi_id := qiwi.make_payment(**details)):
 		cursor.connection.rollback()
-		logger.error("Withdraw for user id {} ({}) failed", user_id, details)
+		logger.error("Withdraw for user id %s (%s) failed", user_id, details)
 		return None
 	transaction_id = cursor.fetchone()
 	cursor.execute(
@@ -175,5 +174,5 @@ def withdraw_money(cursor, user_id, **details):
 		(qiwi_id, transaction_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
-	logger.error("User id {} withdrew {}", user_id, details['amount'])
+	logger.error("User id %s withdrew %s", user_id, details['amount'])
 	return cursor.fetchone()

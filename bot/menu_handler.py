@@ -43,8 +43,9 @@ class MenuHandler(Handler):
 		messages.append(text[i:])
 		for message in messages:
 			old_messages.append(update.effective_chat.send_message(message))
-		old_messages[-1].edit_reply_markup(
-			reply_markup=InlineKeyboardMarkup(buttons))
+		if any(buttons):
+			old_messages[-1].edit_reply_markup(
+				reply_markup=InlineKeyboardMarkup(buttons))
 
 	@staticmethod
 	def check_update(update):
