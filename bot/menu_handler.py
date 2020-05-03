@@ -45,7 +45,7 @@ class MenuHandler(Handler):
 		# finally sending and storing messages to delete next time
 		for message in messages:
 			old_messages.append(update.effective_chat.send_message(message))
-		if any(buttons):
+		if buttons and any(buttons):
 			old_messages[-1].edit_reply_markup(
 				reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -66,7 +66,7 @@ class MenuHandler(Handler):
 			next_state = MenuHandler._read_query(update, context, history)
 		else:
 			old_messages.append(update.effective_message)
-			next_state = self._read_message(update, context, history)
+			next_state = MenuHandler._read_message(update, context, history)
 
 		# updating user history with next state or trimming history if back
 		try:

@@ -13,7 +13,7 @@ def matches_main(update, context, menu=matches_menu):
 	or not context.user_data.get('pubg_username')):
 		update.callback_query.answer(menu['answers']['pubg_required'])
 		del context.user_data['history'][-1]
-		return (None, None)
+		return (texts.menu['msg'], texts.menu['buttons'])
 
 	picked_slots = context.user_data.setdefault('picked_slots', set())
 	slots_buttons = []

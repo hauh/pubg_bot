@@ -13,9 +13,10 @@ import utility
 ##############################
 
 admin_menu = texts.menu['next']['admin']
-manage_admins_menu = admin_menu['next']['manage_admins']
 manage_matches_menu = admin_menu['next']['manage_matches']
 set_winners_menu = manage_matches_menu['next']['set_winners_']
+manage_admins_menu = admin_menu['next']['manage_admins']
+manage_users_menu = admin_menu['next']['manage_users']
 
 
 def with_admin_rights(admin_func):
@@ -208,6 +209,87 @@ def generate_table(update, context, game, menu):
 
 
 @with_admin_rights
+def manage_users(update, context, menu):
+	if not (user_input := context.user_data.pop('user_input', None)):
+		return (menu['msg'], menu['buttons'])
+
+	if user_input.startswith('@'):
+		user = database.get_user(username=user_input[1:])
+	else:
+		try:
+			user = database.get_user(pubg_id=int(user_input))
+		except ValueError:
+			user = None
+	if not user:
+		return (menu['answers']['user_not_found'], menu['buttons'])
+
+	user['balance'] = database.get_balance(user['id'])
+	context.dispatcher.user_data.setdefault(user['id'], {}).update(user)
+	change_balance_button = utility.button(
+		f"change_balance_{user['id']}",
+		menu['btn_templates']['change_balance']
+	)
+	switch_ban_button = utility.button(
+		f"switch_ban_{user['id']}",
+		menu['btn_templates']['ban'] if not user['banned']
+			else menu['btn_templates']['unban']
+	)
+	return (
+		menu['answers']['user_found'].format(**user),
+		[change_balance_button] + [switch_ban_button] + menu['buttons']
+	)
+
+
+@with_admin_rights
+def change_user_balance(update, context, menu):
+	user_id = int(context.user_data['history'][-1].split('_')[-1])
+	user_data = context.dispatcher.user_data.get(user_id)
+
+	if amount := context.user_data.pop('validated_input', None):
+		user_data['balance'] = database.change_balance(
+			user_id, int(amount), 'by_admin', ext_id=update.effective_user.id)
+		update.callback_query.answer(menu['answers']['success'])
+		return admin_main(update, context)
+
+	if user_input := context.user_data.pop('user_input', None):
+		try:
+			amount = int(user_input)
+		except ValueError:
+			pass
+		else:
+			return (
+				menu['msg'].format(**user_data)
+					+ menu['answers']['confirm'].format(amount),
+				[utility.confirm_button(amount)] + menu['buttons']
+			)
+
+	return (
+		menu['msg'].format(**user_data) + menu['answers']['ask_for_input'],
+		menu['buttons']
+	)
+
+
+@with_admin_rights
+def switch_ban(update, context, menu):
+	user_id = int(context.user_data['history'][-1].split('_')[-1])
+	user_data = context.dispatcher.user_data.get(user_id)
+	user_data['banned'] = not user_data['banned']
+	database.update_user(user_id, banned=user_data['banned'])
+	if not user_data['banned']:
+		update.callback_query.answer(menu['answers']['unbanned'])
+	else:
+		update.callback_query.answer(menu['answers']['banned'])
+		for message in user_data.pop('old_messages', []):
+			try:
+				message.delete()
+			except TelegramError:
+				pass
+		for game in user_data.pop('picked_slots', []):
+			game.leave(user_id)
+	return admin_main(update, context)
+
+
+@with_admin_rights
 def mailing(update, context, menu):
 	def spam(context):
 		try:
@@ -245,11 +327,15 @@ def add_callbacks():
 	admin_menu['callback'] = admin_main
 	admin_menu['next']['mailing']['callback'] = mailing
 
-	manage_admins_menu['next']['add_admin']['callback'] = add_admin
-	manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
-
 	manage_matches_menu['callback'] = manage_matches
 	manage_matches_menu['next']['set_room_']['callback'] = set_room
 
 	set_winners_menu['callback'] = set_winners
 	set_winners_menu['next']['generate_table_']['callback'] = generate_table
+
+	manage_admins_menu['next']['add_admin']['callback'] = add_admin
+	manage_admins_menu['next']['del_admin']['callback'] = revoke_admin
+
+	manage_users_menu['callback'] = manage_users
+	manage_users_menu['next']['change_balance_']['callback'] = change_user_balance
+	manage_users_menu['next']['switch_ban_']['callback'] = switch_ban

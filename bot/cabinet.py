@@ -60,7 +60,7 @@ def with_input(setter):
 			return (menu['msg'], menu['buttons'])
 
 		# validate first if there is input
-		if not setter(update, context, menu, user_input, validated=False):
+		if not setter(update, context, user_input, validated=False):
 			return (menu['answers']['invalid'], menu['buttons'])
 
 		return (
