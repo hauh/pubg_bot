@@ -33,7 +33,7 @@ def balance_history(update, context, menu):
 	if not (history := database.get_balance_history(update.effective_user.id)):
 		return (menu['msg'], menu['buttons'])
 	return (
-		"\n".join(["{arrow} \\[{id}: {date}] *{amount}*\n".format(
+		"\n".join(["{arrow} \\[{id}: {date}] *{amount}*".format(
 			arrow='➡' if balance_entry['amount'] > 0 else '⬅',
 			id=balance_entry['id'],
 			date=balance_entry['date'].strftime("%Y.%m.%d %H:%M"),

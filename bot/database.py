@@ -107,6 +107,7 @@ def update_slot(cursor, slot_id, **updated):
 @with_connection
 def delete_slot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
+	# since it's cascading we can check if there were users
 	if cursor.rowcount > 1:
 		logger.info("Slot id %s was canceled", slot_id)
 
@@ -155,7 +156,7 @@ def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 	)
 	cursor.execute(queries.get_balance, (user_id,))
 	logger.info("Balance change for user id %s: %s %s", user_id, reason, amount)
-	return cursor.fetchone()
+	return cursor.fetchone()['balance']
 
 
 @with_connection
@@ -168,11 +169,11 @@ def withdraw_money(cursor, user_id, **details):
 		cursor.connection.rollback()
 		logger.error("Withdraw for user id %s (%s) failed", user_id, details)
 		return None
-	transaction_id = cursor.fetchone()
+	transaction_id = cursor.fetchone()['id']
 	cursor.execute(
 		queries.update_transaction_id,
 		(qiwi_id, transaction_id)
 	)
 	cursor.execute(queries.get_balance, (user_id,))
-	logger.error("User id %s withdrew %s", user_id, details['amount'])
-	return cursor.fetchone()
+	logger.info("User id %s withdrew %s", user_id, details['amount'])
+	return cursor.fetchone()['balance']

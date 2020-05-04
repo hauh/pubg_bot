@@ -1,6 +1,7 @@
 bot/__pycache__
 /pubg
 /.vscode
+/tests
 env
 env.ps1
 pubg_bot.log
