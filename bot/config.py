@@ -2,30 +2,35 @@
 
 import os
 import logging
+from datetime import datetime
+
 import pytz
 
+##############################
 
 # bot
 bot_token = os.environ['TG_TOKEN']
 if admin_id := os.getenv('ADMIN_ID'):
 	admin_id = [int(i) for i in admin_id.split(',')]
 admin_group_id = os.environ['ADMIN_GROUP_ID']
-battle_chat = os.environ['BATTLE_CHAT_LINK']
-db_url = os.getenv('HEROKU_DB')
-proxy = os.getenv('PROXY')
 admin_name = os.environ['ADMIN_NAME']
+proxy = os.getenv('PROXY')
+db_url = os.environ['DATABASE']
+battle_chat = os.environ['CHAT_URL']
 
 # qiwi
 qiwi_token = os.environ['QIWI_TOKEN']
 qiwi_phone = os.environ['QIWI_PHONE']
 
-# logger
+# logging
+os.makedirs('logs', exist_ok=True)
+log_filename = f"logs/{datetime.now().strftime('%Y.%m.%d')}.log"
 logging.basicConfig(
 	level=logging.INFO,
 	format='{asctime} - {name}.{funcName} - {levelname} - {message}',
 	style='{',
 	handlers=[
-		logging.FileHandler('pubg_bot.log', encoding='utf-8'),
+		logging.FileHandler(log_filename, encoding='utf-8'),
 		logging.StreamHandler()
 	]
 )

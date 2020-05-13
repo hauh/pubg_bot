@@ -1,10 +1,6 @@
 bot/__pycache__
 /pubg
 /.vscode
+/logs
 test.py
-env
 env.ps1
-pubg_bot.log
-test.py
-test.xlsx
-admins.txt
