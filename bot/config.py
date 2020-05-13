@@ -6,17 +6,18 @@ import pytz
 
 
 # bot
-bot_token = os.getenv('TG_TOKEN')
-admin_id = [int(i) for i in os.getenv('ADMIN_ID').split(',')]
-admin_group_id = os.getenv('ADMIN_GROUP_ID')
-battle_chat = os.getenv('BATTLE_CHAT_LINK')
+bot_token = os.environ['TG_TOKEN']
+if admin_id := os.getenv('ADMIN_ID'):
+	admin_id = [int(i) for i in admin_id.split(',')]
+admin_group_id = os.environ['ADMIN_GROUP_ID']
+battle_chat = os.environ['BATTLE_CHAT_LINK']
 db_url = os.getenv('HEROKU_DB')
 proxy = os.getenv('PROXY')
+admin_name = os.environ['ADMIN_NAME']
 
 # qiwi
-qiwi_token = os.getenv('QIWI_TOKEN')
-qiwi_phone = os.getenv('QIWI_PHONE')
-qiwi_url = 'https://qiwi.com'
+qiwi_token = os.environ['QIWI_TOKEN']
+qiwi_phone = os.environ['QIWI_PHONE']
 
 # logger
 logging.basicConfig(
@@ -55,7 +56,7 @@ prize_structure = {
 		10: 6.0,
 	},
 	'kills': {
-		'kills': 75.0,
+		'kills': 70.0,
 	},
 	'mixed': {
 		'kills': 35.0,
