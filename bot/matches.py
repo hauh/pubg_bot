@@ -25,6 +25,8 @@ def matches_main(update, context, menu=matches_menu):
 			))
 	if len(picked_slots) < 3:
 		for slot in context.bot_data.get('slots', []):
+			if slot in picked_slots:
+				continue
 			if not slot.players:
 				text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
 			elif slot.is_full:
@@ -63,7 +65,7 @@ def pick_slot(update, context, menu):
 		settings = context.user_data.pop('slot_settings', None)
 		if slot.is_set:
 			return done('already_set')
-		elif settings and all(settings.values()):
+		if settings and all(settings.values()):
 			slot.update_settings(settings)
 
 	# leave if already joined

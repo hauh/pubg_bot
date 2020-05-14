@@ -249,6 +249,7 @@ def change_user_balance(update, context, menu):
 		user_data['balance'] = database.change_balance(
 			user_id, int(amount), 'by_admin', ext_id=update.effective_user.id)
 		update.callback_query.answer(menu['answers']['success'])
+		del context.user_data['history'][-2:]
 		return admin_main(update, context)
 
 	if user_input := context.user_data.pop('user_input', None):
@@ -286,6 +287,7 @@ def switch_ban(update, context, menu):
 				pass
 		for game in user_data.pop('picked_slots', []):
 			game.leave(user_id)
+	del context.user_data['history'][-2:]
 	return admin_main(update, context)
 
 
