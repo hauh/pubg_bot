@@ -5,6 +5,8 @@ import database
 
 ##############################
 
+SETTINGS = ['type', 'mode', 'view', 'bet']
+
 
 class Slot:
 	'''
@@ -13,14 +15,14 @@ class Slot:
 	game room id and password, and prizes, which Slot can calculate for every
 	player and yield.
 	'''
-	def __init__(self, time):
-		self.slot_id = database.create_slot(time)
+	def __init__(self, time, **kwargs):
+		self.slot_id = kwargs.get('id') or database.create_slot(time)
 		self.time = time
-		self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
+		self.settings = {key: kwargs.get(key) for key in SETTINGS}
+		self.pubg_id = kwargs.get('pubg_id')
+		self.room_pass = kwargs.get('room_pass')
 		self.players = dict()
-		self.prize_fund = 0
 		self.is_running = self.is_finished = False
-		self.pubg_id = self.room_pass = None
 
 	def __str__(self):
 		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
@@ -65,6 +67,10 @@ class Slot:
 		return config.prize_structure[self.game_type]
 
 	@property
+	def prize_fund(self):
+		return self.players_count * self.bet
+
+	@property
 	def total_kills(self):
 		return sum(player.get('kills', 0) for player in self.players.values())
 
@@ -93,14 +99,13 @@ class Slot:
 	def join(self, user_id):
 		database.join_slot(self.slot_id, user_id, self.bet)
 		self.players[user_id] = dict()
-		self.prize_fund += self.bet
 
 	def leave(self, user_id):
 		database.leave_slot(self.slot_id, user_id)
 		del self.players[user_id]
-		self.prize_fund -= self.bet
 		if not self.players:
-			self.settings = dict.fromkeys(['type', 'mode', 'view', 'bet'], None)
+			self.settings = dict.fromkeys(SETTINGS, None)
+			database.update_slot(self.slot_id, **self.settings)
 
 	def update_room(self, pubg_id, room_pass):
 		pubg_id = int(pubg_id)
@@ -110,24 +115,15 @@ class Slot:
 
 	def distribute_prizes(self):
 		total_payout = 0
-		if self.prize_structure['kills'] and self.total_kills:
-			kill_price = round(
-				self.prize_fund / 100.0
-				* self.prize_structure['kills']
-				/ self.total_kills
-			)
-		else:
-			kill_price = 0
+		percent = self.prize_fund / 100.0
+		kill_price = self.prize_structure['kills'] / 100.0 * self.bet
 		for player_results in self.players.values():
 			if place := player_results.get('place'):
-				prize = round(
-					self.prize_fund / 100.0
-					* self.prize_structure[place]
-				)
+				prize = round(percent * self.prize_structure[place])
 				player_results.setdefault('prize', {}).update(for_place=prize)
 				total_payout += prize
-			if kills := player_results.get('kills'):
-				prize = kills * kill_price
+			if kill_price and (kills := player_results.get('kills')):
+				prize = round(kills * kill_price)
 				player_results.setdefault('prize', {}).update(for_kills=prize)
 				total_payout += prize
 		return total_payout

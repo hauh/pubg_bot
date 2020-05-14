@@ -19,6 +19,23 @@ SEND_ROOM_BEFORE = timedelta(minutes=config.times['send_room'])
 DELETE_SLOT_MESSAGE_TIME = timedelta(hours=3)
 
 
+def restore_state(context):
+	active_slots = []
+	for match in database.restore_slots():
+		slot = Slot(**match)
+		for player in match['players']:
+			player_id = player['id']
+			slot.players[player_id] = dict()
+			player_data = context.dispatcher.user_data.setdefault(player_id, player)
+			if 'balance' not in player_data:
+				player_data['balance'] = database.get_balance(player_id)
+			player_data.setdefault('picked_slots', set()).add(slot)
+		active_slots.append(slot)
+	context.dispatcher.bot_data['slots'] = active_slots
+	if active_slots:
+		logger.info("%s slots restored from database", len(active_slots))
+
+
 def check_slots_and_games(context):
 	slot_expiration_time = datetime.now(config.timezone) + CLOSE_TIME
 	waiting_slots = []

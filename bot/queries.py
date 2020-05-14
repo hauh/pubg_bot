@@ -17,7 +17,7 @@ init_db = (
 	"""
 	CREATE TABLE IF NOT EXISTS matches (
 		id			SERIAL PRIMARY KEY,
-		start_time	TIMESTAMPTZ NOT NULL,
+		time		TIMESTAMPTZ NOT NULL,
 		type		TEXT,
 		mode		TEXT,
 		view		TEXT,
@@ -80,7 +80,7 @@ get_balance_history =\
 # games
 create_slot =\
 	"""
-	INSERT INTO matches (start_time) VALUES (%s) RETURNING id
+	INSERT INTO matches (time) VALUES (%s) RETURNING id
 	"""
 update_slot =\
 	"""
@@ -89,6 +89,15 @@ update_slot =\
 delete_slot =\
 	"""
 	DELETE FROM matches WHERE id = %s
+	"""
+load_slots =\
+	"""
+	SELECT * FROM matches WHERE finished = false
+	"""
+load_players =\
+	"""
+	SELECT * FROM users WHERE id IN
+		(SELECT user_id FROM players_in_matches WHERE match_id = %s)
 	"""
 join_slot =\
 	"""

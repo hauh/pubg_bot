@@ -107,9 +107,22 @@ def update_slot(cursor, slot_id, **updated):
 @with_connection
 def delete_slot(cursor, slot_id):
 	cursor.execute(queries.delete_slot, (slot_id,))
-	# since it's cascading we can check if there were users
+	# since deleting is cascading we can check if there were users
 	if cursor.rowcount > 1:
-		logger.info("Slot id %s was canceled", slot_id)
+		logger.info(
+			"Slot id %s with %s players was canceled",
+			slot_id, cursor.rowcount // 2
+		)
+
+
+@with_connection
+def restore_slots(cursor):
+	cursor.execute(queries.load_slots)
+	slots = cursor.fetchall()
+	for slot in slots:
+		cursor.execute(queries.load_players, (slot['id'],))
+		slot['players'] = cursor.fetchall()
+	return slots
 
 
 @with_connection
