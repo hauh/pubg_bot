@@ -20,7 +20,7 @@ DELETE_SLOT_MESSAGE_TIME = timedelta(hours=3)
 
 
 def check_slots_and_games(context):
-	now = datetime.now(config.timezone)
+	slot_expiration_time = datetime.now(config.timezone) + CLOSE_TIME
 	waiting_slots = []
 	running_games = []
 
@@ -44,7 +44,7 @@ def check_slots_and_games(context):
 			logger.info("Slot [%s] is waiting for room and pass", str(slot))
 
 		# deleting expired slot
-		elif slot.time + CLOSE_TIME >= now:
+		elif slot.time <= slot_expiration_time:
 			_delete_slot(context, slot)
 
 		# waiting for the right time
@@ -52,12 +52,16 @@ def check_slots_and_games(context):
 			waiting_slots.append(slot)
 
 	# filling waiting slots with new ones
-	if len(waiting_slots) < 24:
-		next_slot_time = (now + CLOSE_TIME + timedelta(minutes=30)).replace(
-			minute=0 if now.minute < 30 else 30, second=0, microsecond=0)
-		while len(waiting_slots) < 24:
-			next_slot_time += SLOT_INTERVAL
-			waiting_slots.append(Slot(next_slot_time))
+	while len(waiting_slots) < 24:
+		try:
+			waiting_slots.append(Slot(waiting_slots[-1].time + SLOT_INTERVAL))
+		except IndexError:
+			waiting_slots.append(
+				Slot((slot_expiration_time + timedelta(minutes=30)).replace(
+					minute=0 if slot_expiration_time.minute < 30 else 30,
+					second=0, microsecond=0)
+				)
+			)
 
 	context.bot_data['slots'] = waiting_slots
 
