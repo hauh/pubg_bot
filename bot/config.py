@@ -38,12 +38,12 @@ logging.basicConfig(
 # slots
 timezone = pytz.timezone('Europe/Moscow')
 times = {
-	'slot_interval': 5,
-	'close_slot': 2,
-	'send_room': 1,
+	'slot_interval': 30,
+	'close_slot': 30,
+	'send_room': 15,
 }
-max_players = 4
-enough_players = 4
+max_players = 70
+enough_players = 70
 
 # prizes
 prize_structure = {

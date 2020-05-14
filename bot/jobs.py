@@ -53,7 +53,7 @@ def check_slots_and_games(context):
 
 	# filling waiting slots with new ones
 	if len(waiting_slots) < 24:
-		next_slot_time = (now + timedelta(minutes=30)).replace(
+		next_slot_time = (now + CLOSE_TIME + timedelta(minutes=30)).replace(
 			minute=0 if now.minute < 30 else 30, second=0, microsecond=0)
 		while len(waiting_slots) < 24:
 			next_slot_time += SLOT_INTERVAL

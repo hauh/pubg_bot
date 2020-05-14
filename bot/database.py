@@ -44,7 +44,7 @@ def prepare_DB(cursor):
 @with_connection
 def save_user(cursor, user_id, username):
 	cursor.execute(queries.save_user, (user_id, username))
-	logger.info("New user %s has been registered", user_id)
+	logger.info("New user '%s' (%s) has been registered", username, user_id)
 	return cursor.fetchone()
 
 

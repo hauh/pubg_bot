@@ -5,6 +5,7 @@ from logging import getLogger
 
 from telegram import ParseMode
 from telegram.ext import Defaults, Updater
+from telegram.error import BadRequest
 
 import config
 import database
@@ -34,7 +35,8 @@ def start(update, context, menu):
 	if user['username'] != username:
 		database.update_user(user_id, username=username)
 		user['username'] = username
-	if user_id in config.admin_id:
+	if not user['admin'] and user_id in config.admin_id:
+		database.update_user(user_id, admin=True)
 		user['admin'] = True
 	context.user_data.update(user)
 	if user['admin']:
@@ -43,14 +45,17 @@ def start(update, context, menu):
 
 
 def error(update, context):
-	if update.callback_query:
-		update.callback_query.answer(texts.error, show_alert=True)
-	if context.user_data:
-		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
+	if update and context.user_data:
+		if update.callback_query:
+			try:
+				update.callback_query.answer(texts.error, show_alert=True)
+			except BadRequest:
+				pass
 		MenuHandler.send_message(
 			update, *start(update, context, texts.menu),
 			context.user_data.setdefault('old_messages', [])
 		)
+		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
 	else:
 		log_entry = "Bot broke down!"
 	logger.error(log_entry, exc_info=(type(context.error), context.error, None))
