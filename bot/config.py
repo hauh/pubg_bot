@@ -35,7 +35,7 @@ logging.basicConfig(
 	]
 )
 
-# slots
+# slots and games settings
 timezone = pytz.timezone('Europe/Moscow')
 times = {
 	'slot_interval': 30,
@@ -44,36 +44,34 @@ times = {
 }
 max_players = 70
 enough_players = 70
-
-# prizes
-prize_structure = {
-	'survival': {
+prizes = {
+	'survival_easy': {
 		'kills': 0,
-		1: 10.0,
-		2: 9.0,
-		3: 8.0,
-		4: 6.0,
-		5: 6.0,
-		6: 6.0,
-		7: 6.0,
-		8: 6.0,
-		9: 6.0,
-		10: 6.0,
+		'top': {
+			50: 1.40
+		},
+	},
+	'survival_medium': {
+		'kills': 0,
+		'top': {
+			25: 2.80
+		},
+	},
+	'survival_hard': {
+		'kills': 0,
+		'top': {
+			10: 7.00
+		},
 	},
 	'kills': {
-		'kills': 70.0,
+		'kills': 0.70,
+		'top': None,
 	},
 	'mixed': {
-		'kills': 35.0,
-		1: 5.0,
-		2: 4.5,
-		3: 4.0,
-		4: 3.0,
-		5: 3.0,
-		6: 3.0,
-		7: 3.0,
-		8: 3.0,
-		9: 3.0,
-		10: 3.0,
+		'kills': 0.22,
+		'top': {
+			10: 2.50,
+			25: 1.50
+		},
 	}
 }

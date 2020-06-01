@@ -60,6 +60,19 @@ save_user =\
 	"""
 get_user =\
 	"""
+	SELECT
+		users.*,
+		(SELECT COUNT(*)
+			FROM players_in_matches WHERE user_id = users.id
+		) AS games_played,
+		(SELECT COALESCE(SUM(amount), 0)
+			FROM transactions WHERE user_id = users.id
+		) AS balance
+	FROM users
+	WHERE users.id = %s
+	"""
+find_user =\
+	"""
 	SELECT * FROM users
 	"""
 update_user =\

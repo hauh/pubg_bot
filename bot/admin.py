@@ -41,7 +41,7 @@ def add_admin(update, context, menu):
 		return switch_admin(update, context, menu, int(admin_id), True)
 
 	if user_input := context.user_data.pop('user_input', None):
-		if not (user := database.get_user(username=user_input)):
+		if not (user := database.find_user(username=user_input)):
 			return (menu['answers']['not_found'], menu['buttons'])
 		return (
 			menu['answers']['found'].format(user['username']),
@@ -58,7 +58,7 @@ def revoke_admin(update, context, menu):
 
 	admins_buttons = [
 		utility.confirm_button(admin['id'], f"@{admin['username']}")
-		for admin in database.get_user(admin=True, fetch_all=True)
+		for admin in database.find_user(admin=True, fetch_all=True)
 	]
 	return (menu['msg'], admins_buttons + menu['buttons'])
 
@@ -105,7 +105,7 @@ def with_game_to_manage(manage_game_func):
 def set_room(update, context, game, menu):
 	# if room id and pass confirmed set it and return back
 	if id_and_pass := context.user_data.pop('validated_input', None):
-		game.update_room(*id_and_pass.split(','))
+		game.run_game(*id_and_pass.split(','))
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		del context.user_data['history'][-1]
 		return manage_matches(update, context)
@@ -165,29 +165,16 @@ def set_winners(update, context, game, menu=set_winners_menu):
 		return done('bad_file')
 
 	game.reset_results()
-	# reading file for places
-	if possible_places := game.places_to_reward():
-		for row, user_id, place in excel.get_winners(results):
-			if place not in possible_places:
-				return done('invalid_value', row)
-			if not (player := game.players.get(user_id)):
-				return done('unknown_player', row)
-			player['place'] = place
-			possible_places.remove(place)
-		if possible_places:
-			return done('not_enough')
-
-	# reading file for kills
-	if game.prize_structure['kills']:
-		possible_kills = range(game.players_count)
-		for row, user_id, kills in excel.get_killers(results):
-			if kills not in possible_kills:
-				return done('invalid_value', row)
-			if not (player := game.players.get(user_id)):
-				return done('unknown_player', row)
-			player['kills'] = kills
-		if game.total_kills != possible_kills[-1]:
-			return done('wrong_kills', possible_kills[-1])
+	# reading file for places and kills
+	try:
+		if hasattr(game.game, 'places'):
+			for row, user_id, place in excel.get_winners(results):
+				game.game.set_player_place(user_id, place)
+		if hasattr(game.game, 'kills'):
+			for row, user_id, kills in excel.get_killers(results):
+				game.game.set_player_kills(user_id, kills)
+	except ValueError as err:
+		return done(err.args[0], row)
 
 	if not game.winners_are_set:
 		return done('missing_something')
@@ -214,10 +201,10 @@ def manage_users(update, context, menu):
 		return (menu['msg'], menu['buttons'])
 
 	if user_input.startswith('@'):
-		user = database.get_user(username=user_input[1:])
+		user = database.find_user(username=user_input[1:])
 	else:
 		try:
-			user = database.get_user(pubg_id=int(user_input))
+			user = database.find_user(pubg_id=int(user_input))
 		except ValueError:
 			user = None
 	if not user:
@@ -303,7 +290,7 @@ def mailing(update, context, menu):
 
 	# if confirmed start spam
 	if context.user_data.pop('validated_input', None):
-		users = database.get_user(admin=False, banned=False, fetch_all=True)
+		users = database.find_user(admin=False, banned=False, fetch_all=True)
 		spam_message = context.bot_data.pop('spam_message')
 		for delay, user in enumerate(users):
 			context.job_queue.run_once(

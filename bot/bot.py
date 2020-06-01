@@ -26,12 +26,12 @@ logger = getLogger('bot')
 def start(update, context, menu):
 	user_id = int(update.effective_user.id)
 	username = update.effective_user.username
-	if not (user := database.get_user(id=user_id)):
+	if not (user := database.get_user(user_id)):
 		user = database.save_user(user_id, username)
+		user['balance'] = 0
+		user['games_played'] = 0
 	if user['banned']:
 		return (texts.banned, None)
-	if 'balance' not in context.user_data:
-		user['balance'] = database.get_balance(user_id)
 	if user['username'] != username:
 		database.update_user(user_id, username=username)
 		user['username'] = username
@@ -39,9 +39,14 @@ def start(update, context, menu):
 		database.update_user(user_id, admin=True)
 		user['admin'] = True
 	context.user_data.update(user)
+	if user['pubg_username']:
+		msg = menu['msg_registered'].format(
+			user['pubg_username'], user['balance'], user['games_played'])
+	else:
+		msg = menu['msg']
 	if user['admin']:
-		return (menu['msg'], [menu['extra_buttons']['admin']] + menu['buttons'])
-	return (menu['msg'], menu['buttons'])
+		return (msg, [menu['extra_buttons']['admin']] + menu['buttons'])
+	return (msg, menu['buttons'])
 
 
 def error(update, context):

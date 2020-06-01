@@ -49,14 +49,22 @@ def save_user(cursor, user_id, username):
 
 
 @with_connection
-def get_user(cursor, *, fetch_all=False, **search_parameters):
-	get_user_query = SQL(queries.get_user)
+def get_user(cursor, user_id):
+	cursor.execute(queries.get_user, (user_id,))
+	if not (user_row := cursor.fetchone()):
+		return None
+	return dict(user_row)
+
+
+@with_connection
+def find_user(cursor, *, fetch_all=False, **search_parameters):
+	find_user_query = SQL(queries.find_user)
 	if search_parameters:
-		get_user_query += SQL('WHERE') + SQL('AND').join(
+		find_user_query += SQL('WHERE') + SQL('AND').join(
 			[SQL('({} = %s)').format(Identifier(key))
 				for key in search_parameters]
 		)
-	cursor.execute(get_user_query, tuple(search_parameters.values()))
+	cursor.execute(find_user_query, tuple(search_parameters.values()))
 	if fetch_all:
 		return cursor.fetchall()
 	return cursor.fetchone()
@@ -121,7 +129,7 @@ def restore_slots(cursor):
 	slots = cursor.fetchall()
 	for slot in slots:
 		cursor.execute(queries.load_players, (slot['id'],))
-		slot['players'] = cursor.fetchall()
+		slot['players'] = [dict(player) for player in cursor.fetchall()]
 	return slots
 
 

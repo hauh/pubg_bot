@@ -94,6 +94,7 @@ def check_slots_and_games(context):
 		for user_id, prize, place, kills in game.reward():
 			player_data = context.dispatcher.user_data.get(user_id)
 			player_data['balance'] += prize
+			player_data['games_played'] += 1
 			player_data['picked_slots'].discard(game)
 			total_payouts += prize
 			utility.notify(
@@ -142,7 +143,6 @@ def _start_game(context):
 		texts.match_is_nigh.format(str(game), game.pubg_id, game.room_pass),
 		context, expires=DELETE_SLOT_MESSAGE_TIME
 	)
-	game.is_running = True
 	context.bot_data.setdefault('games', []).append(game)
 	logger.info("Game %s - %s started!", game.slot_id, str(game))
 

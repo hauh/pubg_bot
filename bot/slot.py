@@ -2,10 +2,13 @@
 
 import config
 import database
+import game
+import texts
 
 ##############################
 
 SETTINGS = ['type', 'mode', 'view', 'bet']
+SETTINGS_TEXTS = texts.matches['next']['slot_']['next']
 
 
 class Slot:
@@ -15,6 +18,7 @@ class Slot:
 	game room id and password, and prizes, which Slot can calculate for every
 	player and yield.
 	'''
+
 	def __init__(self, time, **kwargs):
 		self.slot_id = kwargs.get('id') or database.create_slot(time)
 		self.time = time
@@ -22,25 +26,21 @@ class Slot:
 		self.pubg_id = kwargs.get('pubg_id')
 		self.room_pass = kwargs.get('room_pass')
 		self.players = dict()
-		self.is_running = self.is_finished = False
+		self.game = None
+		self.is_finished = False
 
 	def __str__(self):
-		return "{time} - 👥{players} - {type} - {mode} - {view} - {bet}".format(
-			time=self.time.strftime("%H:%M"),
-			players=len(self.players),
-			type=self.settings['type'],
-			mode=self.settings['mode'],
-			view=self.settings['view'],
-			bet=self.settings['bet']
+		return (
+			f"{self.time.strftime('%H:%M')} - 👥{len(self.players)}"
+			+ " - ".join(
+				[SETTINGS_TEXTS[key]['next'][str(self.settings[key])]['btn']
+					for key in SETTINGS if self.settings[key]]
+			)
 		)
 
 	@property
 	def bet(self):
 		return self.settings['bet']
-
-	@property
-	def players_count(self):
-		return len(self.players)
 
 	@property
 	def is_full(self):
@@ -59,42 +59,12 @@ class Slot:
 		return self.pubg_id and self.room_pass
 
 	@property
-	def game_type(self):
-		return self.settings['type']
-
-	@property
-	def prize_structure(self):
-		return config.prize_structure[self.game_type]
+	def is_running(self):
+		return bool(self.game)
 
 	@property
 	def prize_fund(self):
-		return self.players_count * self.bet
-
-	@property
-	def total_kills(self):
-		return sum(player.get('kills', 0) for player in self.players.values())
-
-	@property
-	def winners_are_set(self):
-		if (0 < sum(self.places_to_reward())
-		!= sum([player.get('place', 0) for player in self.players.values()])):
-			return False
-		if (self.prize_structure['kills']
-		and self.total_kills != self.players_count - 1):
-			return False
-		return True
-
-	def reset_results(self):
-		for results in self.players.values():
-			results.clear()
-
-	def update_settings(self, settings):
-		database.update_slot(self.slot_id, **settings)
-		settings['bet'] = int(settings['bet'])
-		self.settings.update(settings)
-
-	def places_to_reward(self):
-		return set(self.prize_structure.keys()) - set(['kills'])
+		return len(self.players) * self.bet
 
 	def join(self, user_id):
 		database.join_slot(self.slot_id, user_id, self.bet)
@@ -107,26 +77,22 @@ class Slot:
 			self.settings = dict.fromkeys(SETTINGS, None)
 			database.update_slot(self.slot_id, **self.settings)
 
-	def update_room(self, pubg_id, room_pass):
+	def update_settings(self, settings):
+		database.update_slot(self.slot_id, **settings)
+		settings['bet'] = int(settings['bet'])
+		self.settings.update(settings)
+
+	def run_game(self, pubg_id, room_pass):
 		pubg_id = int(pubg_id)
 		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 		self.pubg_id = pubg_id
 		self.room_pass = room_pass
+		self.game = game.factory(self.settings, self.players)
 
-	def distribute_prizes(self):
-		total_payout = 0
-		percent = self.prize_fund / 100.0
-		kill_price = self.prize_structure['kills'] / 100.0 * self.bet
-		for player_results in self.players.values():
-			if place := player_results.get('place'):
-				prize = round(percent * self.prize_structure[place])
-				player_results.setdefault('prize', {}).update(for_place=prize)
-				total_payout += prize
-			if kill_price and (kills := player_results.get('kills')):
-				prize = round(kills * kill_price)
-				player_results.setdefault('prize', {}).update(for_kills=prize)
-				total_payout += prize
-		return total_payout
+	def reset_results(self):
+		for results in self.players.values():
+			results.clear()
+		self.game = game.factory(self.settings, self.players)
 
 	def reward(self):
 		for user_id, result in self.players.items():
