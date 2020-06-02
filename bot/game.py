@@ -3,9 +3,7 @@
 from config import prizes as PRIZES
 
 
-def factory(settings, players):
-	game_type = settings['type']
-	bet = settings['bet']
+def factory(game_type, bet, players):
 	if game_type == 'survival_easy':
 		return SurvivalEasy(players, bet)
 	if game_type == 'survival_medium':

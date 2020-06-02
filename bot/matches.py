@@ -6,6 +6,7 @@ import utility
 ##############################
 
 matches_menu = texts.menu['next']['matches']
+MATCH_SETTINGS = texts.match_settings
 
 
 def matches_main(update, context, menu=matches_menu):
@@ -25,15 +26,12 @@ def matches_main(update, context, menu=matches_menu):
 			))
 	if len(picked_slots) < 3:
 		for slot in context.bot_data.get('slots', []):
-			if slot in picked_slots:
-				continue
-			if not slot.players:
-				text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
-			elif slot.is_full:
-				text = f"{slot.time.strftime('%H:%M')} - {texts.full_slot}"
-			else:
-				text = str(slot)
-			slots_buttons.append(utility.button(f'slot_{slot.slot_id}', text))
+			if slot not in picked_slots and not slot.is_full:
+				if not slot.is_set:
+					btn_text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
+				else:
+					btn_text = str(slot)
+				slots_buttons.append(utility.button(f'slot_{slot.slot_id}', btn_text))
 	return (
 		menu['msg'].format(
 			balance=context.user_data['balance'],
@@ -107,7 +105,7 @@ def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 	answer = menu['msg'].format(
 		balance=context.user_data['balance'],
 		**{
-			setting: menu['next'][setting]['next'][chosen_value]['btn']
+			setting: MATCH_SETTINGS[setting][chosen_value]['full']
 				if chosen_value else menu['default']
 				for setting, chosen_value in settings.items()
 		}

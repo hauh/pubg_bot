@@ -3,36 +3,69 @@
 import config
 
 # match settings
-# match_settings = {
-# 	'type': {
-# 		'survival_easy': {
-# 			'full': "Выживание (лёгкий)",
-# 			'short': "Выж. лёгк."
-# 		},
-# 		'survival_medium': {
-# 			'full': "Выживание (средний)",
-# 			'short': "Выж. средн."
-# 		},
-# 		'survival_hard': {
-# 			'full': "Выживание (тяжёлый)",
-# 			'short': "Выж. тяж."
-# 		},
-# 		'kills': {
-# 			'full': "Убийства",
-# 			'short': "Убийства"
-# 		},
-# 		"mixed": {
-# 			'full': "Смешанный",
-# 			'short': "Смешанный"
-# 		}
-# 	},
-# 	'view': {
-# 		'1st': {
-# 			'full': "От первого лица",
-# 			'short': "1st",
-# 		}
-# 	}
-# }
+match_settings = {
+	'type': {
+		'survival_easy': {
+			'full': "Выживание (лёгкий)",
+			'short': "Выж(лёгк)"
+		},
+		'survival_medium': {
+			'full': "Выживание (средний)",
+			'short': "Выж(ср)"
+		},
+		'survival_hard': {
+			'full': "Выживание (тяжёлый)",
+			'short': "Выж(тяж)"
+		},
+		'kills': {
+			'full': "Убийства",
+			'short': "Убийства"
+		},
+		"mixed": {
+			'full': "Смешанный",
+			'short': "Смешанный"
+		}
+	},
+	'view': {
+		'1st': {
+			'full': "От первого лица",
+			'short': "1st",
+		},
+		'3rd': {
+			'full': "От третьего лица",
+			'short': "3rd",
+		},
+	},
+	'mode': {
+		'solo': {
+			'full': "SOLO",
+			'short': "SOLO"
+		},
+		'dual': {
+			'full': "DUAL",
+			'short': "DUAL"
+		},
+		'squad': {
+			'full': "SQUAD",
+			'short': "SQUAD"
+		},
+		'payload': {
+			'full': "Payload",
+			'short': "Payload"
+		},
+		'zombie': {
+			'full': "Zombie",
+			'short': "Zombie"
+		}
+	},
+	'bet': {
+		str(bet): {
+			'full': bet,
+			'short': str(bet)
+		} for bet in range(
+			config.bets['min'], config.bets['max'] + 1, config.bets['step'])
+	}
+}
 
 # main menu
 menu = {
@@ -191,62 +224,39 @@ matches = {
 					'btn': "Выбрать тип",
 					'msg': "Выберите *ТИП* игры",
 					'next': {
-						'survival_easy': {
-							'btn': "Выживание (лёгкий)"
-						},
-						'survival_medium': {
-							'btn': "Выживание (средний)"
-						},
-						'survival_hard': {
-							'btn': "Выживание (тяжёлый)"
-						},
-						'kills': {
-							'btn': "Убийства"
-						},
-						'mixed': {
-							'btn': "Смешанный"
-						}
+						match_type: {
+							'btn': type_text['full']
+						} for match_type, type_text in match_settings['type'].items()
 					}
 				},
 				'mode': {
 					'btn': "Выбрать режим",
 					'msg': "Выберите *РЕЖИМ* игры",
 					'next': {
-						'solo': {
-							'btn': "SOLO"
-						},
-						'dual': {
-							'btn': "DUAL"
-						},
-						'squad': {
-							'btn': "SQUAD"
-						},
-						'payload': {
-							'btn': "Payload"
-						},
-						'zombie': {
-							'btn': "Zombie"
-						},
-					},
+						match_mode: {
+							'btn': mode_text['full']
+						} for match_mode, mode_text in match_settings['mode'].items()
+					}
 				},
 				'view': {
 					'btn': "Выбрать обзор",
 					'msg': "Выберите *ОБЗОР* игры",
 					'next': {
-						'1st': {
-							'btn': "От 1-го лица"
-						},
-						'3rd': {
-							'btn': "От 3-го лица"
-						},
-					},
+						match_view: {
+							'btn': view_text['full']
+						} for match_view, view_text in match_settings['view'].items()
+					}
 				},
 				'bet': {
 					'btn': "Выбрать ставку",
 					'msg': "Выберите *СТАВКУ*",
-					'next': {str(bet): {'btn': str(bet)} for bet in range(10, 101, 10)}
+					'next': {
+						match_bet: {
+							'btn': bet_text['full']
+						} for match_bet, bet_text in match_settings['bet'].items()
+					}
 				},
-			}
+			},
 		},
 	},
 }
@@ -254,7 +264,6 @@ menu['next']['matches'].update(matches)
 
 free_slot = "Создать матч"
 leave_slot = "Выйти"
-full_slot = "ЗАПОЛНЕН"
 
 # profile
 profile = {

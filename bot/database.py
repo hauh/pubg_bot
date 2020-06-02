@@ -107,7 +107,7 @@ def create_slot(cursor, start_time):
 def update_slot(cursor, slot_id, **updated):
 	cursor.execute(
 		SQL(queries.update_slot).format(SQL(', ').join(
-			[SQL('{} = %s').format(Identifier(key)) for key in updated.keys()])),
+			[SQL('{} = %s').format(Identifier(key)) for key in updated])),
 		tuple(updated.values()) + (slot_id,)
 	)
 

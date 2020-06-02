@@ -105,7 +105,7 @@ delete_slot =\
 	"""
 load_slots =\
 	"""
-	SELECT * FROM matches WHERE finished = false
+	SELECT * FROM matches WHERE finished = false ORDER BY time
 	"""
 load_players =\
 	"""

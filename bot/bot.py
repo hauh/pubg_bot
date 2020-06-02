@@ -115,7 +115,7 @@ def main():
 	updater.dispatcher.add_error_handler(error)
 
 	updater.job_queue.run_once(jobs.restore_state, 0)
-	updater.job_queue.run_repeating(jobs.check_slots_and_games, 5, first=1)
+	updater.job_queue.run_repeating(jobs.check_slots_and_games, 300, first=60)
 
 	logger.info("Bot started")
 

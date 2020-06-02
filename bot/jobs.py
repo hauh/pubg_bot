@@ -66,6 +66,8 @@ def check_slots_and_games(context):
 
 		# waiting for the right time
 		else:
+			if not slot.players and slot.is_set:
+				slot.reset_settings()
 			waiting_slots.append(slot)
 
 	# filling waiting slots with new ones

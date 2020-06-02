@@ -3,12 +3,9 @@
 import config
 import database
 import game
-import texts
+from texts import match_settings as SETTINGS
 
 ##############################
-
-SETTINGS = ['type', 'mode', 'view', 'bet']
-SETTINGS_TEXTS = texts.matches['next']['slot_']['next']
 
 
 class Slot:
@@ -31,11 +28,14 @@ class Slot:
 
 	def __str__(self):
 		return (
-			f"{self.time.strftime('%H:%M')} - 👥{len(self.players)}"
-			+ " - ".join(
-				[SETTINGS_TEXTS[key]['next'][str(self.settings[key])]['btn']
-					for key in SETTINGS if self.settings[key]]
-			)
+			f"🕑{self.time.strftime('%H:%M')}"
+			+ ("👥{players}🎮{type}, {mode}👁{view}💲{bet}".format(
+				players=len(self.players),
+				**{
+					setting: text[str(self.settings[setting])]['short']
+					for setting, text in SETTINGS.items()
+				}
+			) if self.is_set else "")
 		)
 
 	@property
@@ -73,21 +73,22 @@ class Slot:
 	def leave(self, user_id):
 		database.leave_slot(self.slot_id, user_id)
 		del self.players[user_id]
-		if not self.players:
-			self.settings = dict.fromkeys(SETTINGS, None)
-			database.update_slot(self.slot_id, **self.settings)
 
 	def update_settings(self, settings):
-		database.update_slot(self.slot_id, **settings)
 		settings['bet'] = int(settings['bet'])
+		database.update_slot(self.slot_id, **settings)
 		self.settings.update(settings)
+
+	def reset_settings(self):
+		self.settings = dict.fromkeys(SETTINGS, None)
+		database.update_slot(self.slot_id, **self.settings)
 
 	def run_game(self, pubg_id, room_pass):
 		pubg_id = int(pubg_id)
 		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 		self.pubg_id = pubg_id
 		self.room_pass = room_pass
-		self.game = game.factory(self.settings, self.players)
+		self.game = game.factory(self.settings, self.bet, self.players)
 
 	def reset_results(self):
 		for results in self.players.values():

@@ -44,6 +44,11 @@ times = {
 }
 max_players = 70
 enough_players = 70
+bets = {
+	'min': 10,
+	'max': 100,
+	'step': 10
+}
 prizes = {
 	'survival_easy': {
 		'kills': 0,
