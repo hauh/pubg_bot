@@ -10,13 +10,17 @@ import pytz
 
 # bot
 bot_token = os.environ['TG_TOKEN']
-if admin_id := os.getenv('ADMIN_ID'):
-	admin_id = [int(i) for i in admin_id.split(',')]
-admin_group_id = os.environ['ADMIN_GROUP_ID']
-admin_name = os.environ['ADMIN_NAME']
+webhook_kwargs = {
+	'listen': '0.0.0.0',
+	'port': 8443,
+	'url_path': bot_token,
+	'key': os.getenv('SSL_KEY'),
+	'cert': os.getenv('SSL_CERT'),
+	'allowed_updates': ['message', 'callback_query']
+}
 proxy = os.getenv('PROXY')
 db_url = os.environ['DATABASE']
-battle_chat = os.environ['CHAT_URL']
+
 
 # qiwi
 qiwi_token = os.environ['QIWI_TOKEN']
@@ -35,7 +39,13 @@ logging.basicConfig(
 	]
 )
 
-# slots and games settings
+# management
+if admin_id := os.getenv('ADMIN_ID'):
+	admin_id = [int(i) for i in admin_id.split(',')]
+admin_group_id = os.environ['ADMIN_GROUP_ID']
+battle_chat = os.environ['CHAT_URL']
+
+# tournaments
 timezone = pytz.timezone('Europe/Moscow')
 times = {
 	'slot_interval': 30,

@@ -22,6 +22,13 @@ from menu_handler import MenuHandler
 
 logger = getLogger('bot')
 
+UPDATER_KWARGS = {
+	'token': config.bot_token,
+	'defaults': Defaults(parse_mode=ParseMode.MARKDOWN),
+	'request_kwargs': dict(proxy_url=config.proxy) if config.proxy else None,
+	'use_context': True,
+}
+
 
 def start(update, context, menu):
 	user_id = int(update.effective_user.id)
@@ -104,12 +111,7 @@ def main():
 
 	init_menu()
 
-	updater = Updater(
-		token=config.bot_token,
-		use_context=True,
-		defaults=Defaults(parse_mode=ParseMode.MARKDOWN),
-		request_kwargs=dict(proxy_url=config.proxy) if config.proxy else None
-	)
+	updater = Updater(**UPDATER_KWARGS)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_error_handler(error)
@@ -117,10 +119,10 @@ def main():
 	updater.job_queue.run_once(jobs.restore_state, 0)
 	updater.job_queue.run_repeating(jobs.check_slots_and_games, 300, first=60)
 
-	logger.info("Bot started")
-
-	updater.start_polling()
+	updater.start_webhook(**config.webhook_kwargs)
 	updater.idle()
+
+	logger.info("Bot started")
 
 
 if __name__ == '__main__':
