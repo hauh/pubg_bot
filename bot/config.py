@@ -16,7 +16,8 @@ webhook_kwargs = {
 	'url_path': bot_token,
 	'key': os.getenv('SSL_KEY'),
 	'cert': os.getenv('SSL_CERT'),
-	'allowed_updates': ['message', 'callback_query']
+	'webhook_url': f"{os.getenv('SERVER_ADDRESS')}:8443/{bot_token}",
+	# 'allowed_updates': ['message', 'callback_query']  # bugged in ptb
 }
 proxy = os.getenv('PROXY')
 db_url = os.environ['DATABASE']

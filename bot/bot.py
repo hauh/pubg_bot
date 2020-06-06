@@ -120,9 +120,11 @@ def main():
 	updater.job_queue.run_repeating(jobs.check_slots_and_games, 300, first=60)
 
 	updater.start_webhook(**config.webhook_kwargs)
+	logger.info("Bot started")
+
 	updater.idle()
 
-	logger.info("Bot started")
+	logger.info("Bot stopped")
 
 
 if __name__ == '__main__':
