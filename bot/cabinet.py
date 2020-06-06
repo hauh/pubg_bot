@@ -4,6 +4,7 @@ import re
 import random
 
 from telegram import ChatAction
+from psycopg2.errors import UniqueViolation
 
 import texts
 import database
@@ -75,7 +76,9 @@ def set_pubg_username(update, context, user_input, validated):
 	if not validated:
 		return len(user_input) <= 14
 
-	if not database.update_user(update.effective_user.id, pubg_username=user_input):  # noqa
+	try:
+		database.update_user(update.effective_user.id, pubg_username=user_input)
+	except UniqueViolation:
 		return 'duplicate', None
 
 	context.user_data['pubg_username'] = user_input
@@ -88,7 +91,9 @@ def set_pubg_id(update, context, user_input, validated):
 		return re.match(r'^[0-9]{8,10}$', user_input)
 
 	pubg_id = int(user_input)
-	if not database.update_user(update.effective_user.id, pubg_id=pubg_id):
+	try:
+		database.update_user(update.effective_user.id, pubg_id=pubg_id)
+	except UniqueViolation:
 		return 'duplicate', None
 
 	context.user_data['pubg_id'] = pubg_id

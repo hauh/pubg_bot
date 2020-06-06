@@ -72,16 +72,12 @@ def find_user(cursor, *, fetch_all=False, **search_parameters):
 
 @with_connection
 def update_user(cursor, user_id, **new_values):
-	updated_rows = 0
 	for column, value in new_values.items():
 		cursor.execute(
 			SQL(queries.update_user).format(Identifier(column)),
-			{'value': value, 'id': user_id}
+			(value, user_id)
 		)
-		if cursor.rowcount:
-			updated_rows += 1
-			logger.info("User id %s updated: %s = %s", user_id, column, value)
-	return updated_rows == len(new_values)
+		logger.info("User id %s updated: %s = %s", user_id, column, value)
 
 
 @with_connection

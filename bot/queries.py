@@ -77,8 +77,7 @@ find_user =\
 	"""
 update_user =\
 	"""
-	UPDATE users SET {0} = %(value)s
-	WHERE id = %(id)s AND {0} IS DISTINCT FROM %(value)s
+	UPDATE users SET {} = %s WHERE id = %s
 	"""
 get_balance =\
 	"""
