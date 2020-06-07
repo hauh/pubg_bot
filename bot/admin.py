@@ -9,6 +9,7 @@ import texts
 import database
 import excel
 import utility
+import debug_mode
 
 ##############################
 
@@ -17,6 +18,7 @@ manage_matches_menu = admin_menu['next']['manage_matches']
 set_winners_menu = manage_matches_menu['next']['set_winners_']
 manage_admins_menu = admin_menu['next']['manage_admins']
 manage_users_menu = admin_menu['next']['manage_users']
+bot_settings_menu = admin_menu['next']['bot_settings']
 
 
 def with_admin_rights(admin_func):
@@ -310,6 +312,28 @@ def mailing(update, context, menu):
 	return (menu['msg'], menu['buttons'])
 
 
+@with_admin_rights
+def bot_settings(update, context, menu=bot_settings_menu):
+	if context.bot_data['debug']:
+		debug_btn = menu['extra_buttons']['debug_off']
+	else:
+		debug_btn = menu['extra_buttons']['debug_on']
+	return (menu['msg'], [debug_btn] + menu['buttons'])
+
+
+@with_admin_rights
+def switch_debug(update, context, menu):
+	if context.bot_data['debug']:
+		debug_mode.turn_off(context.bot)
+		update.callback_query.answer(menu['answers']['debug_off'])
+	else:
+		update.callback_query.answer(menu['answers']['debug_on'], show_alert=True)
+		debug_mode.turn_on(context.bot)
+	context.bot_data['debug'] = not context.bot_data['debug']
+	del context.user_data['history'][-1]
+	return bot_settings(update, context)
+
+
 ##############################
 
 def add_callbacks():
@@ -328,3 +352,6 @@ def add_callbacks():
 	manage_users_menu['callback'] = manage_users
 	manage_users_menu['next']['change_balance_']['callback'] = change_user_balance
 	manage_users_menu['next']['switch_ban_']['callback'] = switch_ban
+
+	bot_settings_menu['callback'] = bot_settings
+	bot_settings_menu['next']['debug_']['callback'] = switch_debug

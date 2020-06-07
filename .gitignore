@@ -4,3 +4,4 @@ bot/__pycache__
 /logs
 test.py
 env.ps1
+cert.pem

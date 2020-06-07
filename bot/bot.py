@@ -115,6 +115,7 @@ def main():
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_error_handler(error)
+	updater.dispatcher.bot_data['debug'] = False
 
 	updater.job_queue.run_once(jobs.restore_state, 0)
 	updater.job_queue.run_repeating(jobs.check_slots_and_games, 300, first=60)
