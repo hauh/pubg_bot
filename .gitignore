@@ -1,7 +1,0 @@
-bot/__pycache__
-/venv
-/.vscode
-/logs
-test.py
-env.ps1
-cert.pem
