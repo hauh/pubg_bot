@@ -21,7 +21,6 @@ webhook_kwargs = {
 }
 proxy = os.getenv('PROXY')
 db_url = os.environ['DATABASE']
-debug_chat = os.environ['DEBUG_CHAT']
 
 # qiwi
 qiwi_token = os.environ['QIWI_TOKEN']

@@ -1,22 +1,18 @@
-'''Monkey patching bot instance to send all messages to debug chat'''
+'''Monkey patching bot instance to append tech info to messages'''
 
 from types import MethodType
-
-import config
 
 ##############################
 
 
 def debug_send_message(self, chat_id, text, **kwargs):
-	if chat_id not in config.admin_id:
-		text = f"Message for {chat_id}:\n{text}"
-		chat_id = config.debug_chat
+	text = f"*chat_id*: {chat_id}\n*kwargs*:\n{kwargs}\n*text*:\n{text}"
 	return self.original_send_message(chat_id, text, **kwargs)
 
 
-def debug_answer_callback_query(self, callback_query_id, text=None, **kwargs):
-	text = f"Answer to callback query id {callback_query_id}:\n{text}"
-	return self.original_send_message(config.debug_chat, text)
+def debug_answer_callback_query(self, cb_query_id, text=None, **kwargs):
+	text = f"*cb_query_id*: {cb_query_id}\n*kwargs*:\n{kwargs}\n*text*:\n{text}"
+	return self.original_send_message(cb_query_id, text)
 
 
 def turn_on(bot):
