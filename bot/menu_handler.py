@@ -24,9 +24,9 @@ class MenuHandler(Handler):
 		super(MenuHandler, self).__init__(callback=None)
 
 	@staticmethod
-	def send_message(update, text, buttons, old_messages):
+	def send_message(chat, old_messages, text, buttons=[]):
 		'''Sending message in chunks if it's too big splitted by newlines'''
-		# first cleaning up old messages
+		# cleaning up old messages
 		for message in old_messages:
 			try:
 				message.delete()
@@ -34,20 +34,18 @@ class MenuHandler(Handler):
 				pass
 		old_messages.clear()
 
-		# then partitioning text
-		messages, i = [], 0
-		while i + MAX_MESSAGE_LENGTH < len(text):
-			max_lines_index = text.rfind('\n', i, i + MAX_MESSAGE_LENGTH)
-			messages.append(text[i:max_lines_index])
-			i = max_lines_index + 1
-		messages.append(text[i:])
+		# sending text in chunks if it doesn't fit in single message
+		while len(text) > MAX_MESSAGE_LENGTH:
+			i_max = text.rfind('\n', end=MAX_MESSAGE_LENGTH)
+			old_messages.append(chat.send_message(text[:i_max]))
+			text = text[i_max + 1:]
 
-		# finally sending and storing messages to delete next time
-		for message in messages:
-			old_messages.append(update.effective_chat.send_message(message))
-		if buttons and any(buttons):
-			old_messages[-1].edit_reply_markup(
-				reply_markup=InlineKeyboardMarkup(buttons))
+		# sending last (or only) part with buttons
+		keyboard = InlineKeyboardMarkup(buttons) if any(buttons) else None
+		if text:
+			old_messages.append(chat.send_message(text, reply_markup=keyboard))
+		elif old_messages and keyboard:  # if text was splitted without leftover
+			old_messages[-1].edit_reply_markup(reply_markup=keyboard)
 
 	@staticmethod
 	def check_update(update):
@@ -87,8 +85,7 @@ class MenuHandler(Handler):
 		context.user_data.pop('user_input', None)
 		context.user_data.pop('validated_input', None)
 
-		if text:
-			MenuHandler.send_message(update, text, buttons, old_messages)
+		MenuHandler.send_message(update.effective_chat, old_messages, text, buttons)
 
 	@staticmethod
 	def _read_query(update, context, history):
