@@ -1,33 +1,45 @@
-'''Monkey patching bot instance to append tech info to messages'''
+'''Monkey patching bot instance to catch requests locally'''
 
-from types import MethodType
+# pylint: disable=protected-access
+
+import json
+
+import requests
+
+from config import debugging_server as DEBUGGING_SERVER
 
 ##############################
 
 
-def debug_send_message(self, chat_id, text, **kwargs):
-	text = f"*chat_id*: {chat_id}\n*kwargs*:\n{kwargs}\n*text*:\n{text}"
-	return self.original_send_message(chat_id, text, **kwargs)
+class TelegramRequestWrapper():
+	'''Sends requests also to localhost'''
 
+	def __init__(self, original_request_handler):
+		self.saved_handler = original_request_handler
 
-def debug_answer_callback_query(self, cb_query_id, text=None, **kwargs):
-	text = f"*cb_query_id*: {cb_query_id}\n*kwargs*:\n{kwargs}\n*text*:\n{text}"
-	return self.original_send_message(cb_query_id, text)
+	def __getattr__(self, attr):
+		return getattr(self.saved_handler, attr)
+
+	def post(self, url, data, timeout=None):
+		result = self.saved_handler.post(url, data, timeout)
+		self.to_debug({'method': url.split('/')[-1], 'result': result, 'data': data})
+		return result
+
+	def get(self, url, timeout=None):
+		result = self.saved_handler.get(url, timeout)
+		self.to_debug({'method': url.split('/')[-1], 'result': result})
+		return result
+
+	def to_debug(self, data):
+		try:
+			requests.post(DEBUGGING_SERVER, data=json.dumps(data))
+		except requests.exceptions.RequestException:
+			pass
 
 
 def turn_on(bot):
-	setattr(bot, 'original_send_message', bot.send_message)
-	setattr(bot, 'original_answer_callback_query', bot.answer_callback_query)
-	bot.send_message = MethodType(debug_send_message, bot)
-	bot.answer_callback_query = MethodType(debug_answer_callback_query, bot)
-	bot.sendMessage = bot.send_message
-	bot.answerCallbackQuery = bot.answer_callback_query
+	bot._request = TelegramRequestWrapper(bot._request)
 
 
 def turn_off(bot):
-	bot.send_message = bot.original_send_message
-	bot.answer_callback_query = bot.original_answer_callback_query
-	bot.sendMessage = bot.send_message
-	bot.answerCallbackQuery = bot.answer_callback_query
-	delattr(bot, 'original_send_message')
-	delattr(bot, 'original_answer_callback_query')
+	bot._request = bot._request.saved_handler

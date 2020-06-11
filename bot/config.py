@@ -21,6 +21,7 @@ webhook_kwargs = {
 }
 proxy = os.getenv('PROXY')
 db_url = os.environ['DATABASE']
+debugging_server = "http://localhost:7777/"
 
 # qiwi
 qiwi_token = os.environ['QIWI_TOKEN']
