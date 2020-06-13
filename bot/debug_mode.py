@@ -1,4 +1,4 @@
-'''Monkey patching bot instance to catch requests locally'''
+'''Monkey patching bot instance to redirect requests to debug chat'''
 
 # pylint: disable=protected-access
 
@@ -6,21 +6,25 @@ import json
 
 import requests
 
-from config import debugging_server as DEBUGGING_SERVER
+import database as db
+from config import debug_server as DEBUG_SERVER, debug_chat as DEBUG_CHAT
 
 ##############################
 
 
 class TelegramRequestWrapper():
-	'''Sends requests also to localhost'''
+	'''Redirects requests to debug chat and sends copies to debug server'''
 
-	def __init__(self, original_request_handler):
+	def __init__(self, original_request_handler, admins):
 		self.saved_handler = original_request_handler
+		self.admins = admins
 
 	def __getattr__(self, attr):
 		return getattr(self.saved_handler, attr)
 
 	def post(self, url, data, timeout=None):
+		if int(data['chat_id']) not in self.admins:
+			data['chat_id'] = DEBUG_CHAT
 		result = self.saved_handler.post(url, data, timeout)
 		self.to_debug({'method': url.split('/')[-1], 'result': result, 'data': data})
 		return result
@@ -30,15 +34,17 @@ class TelegramRequestWrapper():
 		self.to_debug({'method': url.split('/')[-1], 'result': result})
 		return result
 
-	def to_debug(self, data):
+	@staticmethod
+	def to_debug(data):
 		try:
-			requests.post(DEBUGGING_SERVER, data=json.dumps(data))
+			requests.post(DEBUG_SERVER, data=json.dumps(data))
 		except requests.exceptions.RequestException:
 			pass
 
 
 def turn_on(bot):
-	bot._request = TelegramRequestWrapper(bot._request)
+	admins = [admin['id'] for admin in db.find_user(admin=True, fetch_all=True)]
+	bot._request = TelegramRequestWrapper(bot._request, admins)
 
 
 def turn_off(bot):
