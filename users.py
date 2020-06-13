@@ -94,7 +94,7 @@ class UsersCollection():
 	def __init__(self, *, how_many, actions):
 		self.users = {}
 		for _ in range(how_many):
-			user_id = random.randint(1000000, 9999999)
+			user_id = random.randint(10000000, 99999999)
 			self.users[user_id] = User(user_id, iter(actions))
 
 	def __contains__(self, user_id):

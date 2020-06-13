@@ -46,14 +46,11 @@ def do_test(actions):
 
 		logger.info("Got data:\n%s", data)
 
-		if not (method := data.get('method', None)):
-			logger.warning('What is that:\n%s', str(data))
+		if data['method'] != 'sendMessage':
 			continue
 
-		if not method == 'sendMessage':
-			continue
-
-		if not (user_id := data['result']['chat']['id']) in users_collection:
+		user_id = data.get('chat_id')
+		if not user_id or user_id not in users_collection:
 			logger.warning('Who is that:\n%s', str(data))
 			continue
 
@@ -70,7 +67,7 @@ TEST_TEST = [
 	('button', 'profile'),
 	('button', 'set_pubg_id'),
 	('message', lambda self: str(self.user_id)),
-	('buttons', lambda self: f"_confirm_{str(self.user_id)}")
+	('button', lambda self: f"_confirm_{str(self.user_id)}")
 ]
 
 
