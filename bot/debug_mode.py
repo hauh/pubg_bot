@@ -23,15 +23,17 @@ class TelegramRequestWrapper():
 		return getattr(self.saved_handler, attr)
 
 	def post(self, url, data, timeout=None):
+		copy = dict(method=url.split('/')[-1], chat_id=data['chat_id'])
 		if int(data['chat_id']) not in self.admins:
 			data['chat_id'] = DEBUG_CHAT
 		result = self.saved_handler.post(url, data, timeout)
-		self.to_debug({'method': url.split('/')[-1], 'result': result, 'data': data})
+		copy.update(result=result)
+		self.to_debug(copy)
 		return result
 
 	def get(self, url, timeout=None):
 		result = self.saved_handler.get(url, timeout)
-		self.to_debug({'method': url.split('/')[-1], 'result': result})
+		self.to_debug(dict(method=url.split('/')[-1], result=result))
 		return result
 
 	@staticmethod
