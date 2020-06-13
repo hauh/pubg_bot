@@ -3,6 +3,7 @@
 # pylint: disable=protected-access
 
 import json
+import logging
 
 import requests
 
@@ -10,6 +11,8 @@ import database as db
 from config import debug_server as DEBUG_SERVER, debug_chat as DEBUG_CHAT
 
 ##############################
+
+logger = logging.getLogger('debug_mode')
 
 
 class TelegramRequestWrapper():
@@ -23,9 +26,11 @@ class TelegramRequestWrapper():
 		return getattr(self.saved_handler, attr)
 
 	def post(self, url, data, timeout=None):
-		copy = dict(method=url.split('/')[-1], chat_id=data['chat_id'])
-		if int(data['chat_id']) not in self.admins:
-			data['chat_id'] = DEBUG_CHAT
+		copy = dict(method=url.split('/')[-1])
+		if 'chat_id' in data:
+			copy.update(chat_id=data['chat_id'])
+			if int(data['chat_id']) not in self.admins:
+				data['chat_id'] = DEBUG_CHAT
 		result = self.saved_handler.post(url, data, timeout)
 		copy.update(result=result)
 		self.to_debug(copy)
@@ -47,7 +52,9 @@ class TelegramRequestWrapper():
 def turn_on(bot):
 	admins = [admin['id'] for admin in db.find_user(admin=True, fetch_all=True)]
 	bot._request = TelegramRequestWrapper(bot._request, admins)
+	logger.warning('Debug mode turned on')
 
 
 def turn_off(bot):
 	bot._request = bot._request.saved_handler
+	logger.info('Debug mode turned off')
