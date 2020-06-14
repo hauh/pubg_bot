@@ -6,6 +6,7 @@ from logging import getLogger
 from telegram import ParseMode
 from telegram.ext import Defaults, Updater
 from telegram.error import BadRequest
+from telegram.utils.request import Request
 
 import config
 import database
@@ -16,18 +17,12 @@ import admin
 import matches
 import cabinet
 
+from mqbot import Bot
 from menu_handler import MenuHandler
 
 ########################
 
 logger = getLogger('bot')
-
-UPDATER_KWARGS = {
-	'token': config.bot_token,
-	'defaults': Defaults(parse_mode=ParseMode.MARKDOWN),
-	'request_kwargs': dict(proxy_url=config.proxy) if config.proxy else None,
-	'use_context': True,
-}
 
 
 def start(update, context, menu):
@@ -112,7 +107,17 @@ def main():
 
 	init_menu()
 
-	updater = Updater(**UPDATER_KWARGS)
+	updater = Updater(
+		bot=Bot(
+			config.bot_token,
+			defaults=Defaults(parse_mode=ParseMode.MARKDOWN),
+			request=Request(
+				con_pool_size=10,
+				proxy_url=config.proxy if config.proxy else None
+			)
+		),
+		use_context=True
+	)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_error_handler(error)
