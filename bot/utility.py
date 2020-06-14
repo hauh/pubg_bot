@@ -1,7 +1,7 @@
 '''Various common helper functions'''
 
 from telegram import InlineKeyboardButton
-from telegram.error import TelegramError, BadRequest
+from telegram.error import TelegramError
 
 import texts
 import config
@@ -20,10 +20,7 @@ def confirm_button(callback_data, text=texts.confirm):
 def notify(users, text, context, *, expires=None):
 	messages = []
 	for user_id in users:
-		try:
-			messages.append(context.bot.send_message(user_id, text))
-		except TelegramError:
-			pass
+		messages.append(context.bot.send_message(user_id, text))
 	if expires:
 		context.job_queue.run_once(_delete_messages, expires, context=messages)
 
@@ -33,8 +30,9 @@ def notify_admins(text, context, *, expires=None):
 
 
 def _delete_messages(context):
-	for message in context.job.context:
+	for message_promise in context.job.context:
 		try:
-			message.delete()
-		except BadRequest:
-			pass
+			msg = message_promise.result()
+		except TelegramError:
+			continue
+		msg.delete()
