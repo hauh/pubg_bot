@@ -17,7 +17,7 @@ import admin
 import matches
 import cabinet
 
-from mqbot import Bot
+from bot import Bot
 from menu_handler import MenuHandler
 
 ########################

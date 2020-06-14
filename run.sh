@@ -3,4 +3,4 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 source "venv/bin/activate"
 source "./env"
-python3 "bot/bot.py" &
+python3 "bot/main.py" &
