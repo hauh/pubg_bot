@@ -5,8 +5,9 @@ from logging import getLogger
 
 from telegram import ParseMode
 from telegram.ext import Defaults, Updater
-from telegram.error import BadRequest
+from telegram.ext.messagequeue import MessageQueue
 from telegram.utils.request import Request
+from telegram.error import BadRequest
 
 import config
 import database
@@ -113,6 +114,10 @@ def main():
 			request=Request(
 				con_pool_size=10,
 				proxy_url=config.proxy if config.proxy else None
+			),
+			msg_queue=MessageQueue(
+				all_burst_limit=29,
+				all_time_limit_ms=1017
 			)
 		),
 		use_context=True
