@@ -26,13 +26,18 @@ class TelegramRequestWrapper():
 		return getattr(self.saved_handler, attr)
 
 	def post(self, url, data, timeout=None):
-		copy = dict(method=url.split('/')[-1])
+		method = url.split('/')[-1]
+		copy = dict(method=method)
 		if 'chat_id' in data:
 			copy.update(chat_id=data['chat_id'])
 			if int(data['chat_id']) not in self.admins:
 				data['chat_id'] = DEBUG_CHAT
-		result = self.saved_handler.post(url, data, timeout)
-		copy.update(result=result)
+		if method != 'answerCallbackQuery':
+			result = self.saved_handler.post(url, data, timeout)
+			copy.update(result=result)
+		else:
+			result = None
+			copy.update(answer=data['text'])
 		self.to_debug(copy)
 		return result
 
