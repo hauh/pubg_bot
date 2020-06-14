@@ -269,9 +269,9 @@ def switch_ban(update, context, menu):
 		update.callback_query.answer(menu['answers']['unbanned'])
 	else:
 		update.callback_query.answer(menu['answers']['banned'])
-		for message in user_data.pop('old_messages', []):
+		for message_promise in user_data.pop('old_messages', []):
 			try:
-				message.delete()
+				message_promise.result().delete()
 			except TelegramError:
 				pass
 		for game in user_data.pop('picked_slots', []):

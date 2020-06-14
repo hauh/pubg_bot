@@ -24,12 +24,14 @@ class MenuHandler(Handler):
 		super(MenuHandler, self).__init__(callback=None)
 
 	@staticmethod
-	def send_message(chat, old_messages, text, buttons=[]):
-		'''Sending message in chunks if it's too big splitted by newlines'''
-		# cleaning up old messages
-		for message in old_messages:
+	def send_message(chat, context, text, buttons=[]):
+		'''Sending message (in chunks if it's too big) after deleting previous'''
+
+		# cleaning up old messages (they are promises)
+		old_messages = context.user_data.setdefault('old_messages', [])
+		for message_promise in old_messages:
 			try:
-				message.delete()
+				message_promise.result().delete()
 			except BadRequest:
 				pass
 		old_messages.clear()
@@ -57,14 +59,7 @@ class MenuHandler(Handler):
 
 	def handle_update(self, update, dispatcher, check_result, context):
 		history = context.user_data.setdefault('history', ['_main_'])
-		old_messages = context.user_data.setdefault('old_messages', [])
-
-		# determining next state
-		if update.callback_query:
-			next_state = MenuHandler._read_query(update, context, history)
-		else:
-			old_messages.append(update.effective_message)
-			next_state = MenuHandler._read_message(update, context, history)
+		next_state = MenuHandler._parse_update(update, context, history)
 
 		# updating user history with next state or trimming history if back
 		try:
@@ -85,10 +80,18 @@ class MenuHandler(Handler):
 		context.user_data.pop('user_input', None)
 		context.user_data.pop('validated_input', None)
 
-		MenuHandler.send_message(update.effective_chat, old_messages, text, buttons)
+		MenuHandler.send_message(update.effective_chat, context, text, buttons)
 
 	@staticmethod
-	def _read_query(update, context, history):
+	def _parse_update(update, context, history):
+		# if update was from text message
+		if not update.callback_query:
+			msg = update.effective_message
+			context.user_data['user_input'] = msg.text or msg.effective_attachment
+			msg.delete()
+			return history[-1]
+
+		# else from button
 		try:
 			update.callback_query.message.edit_reply_markup(
 				reply_markup=InlineKeyboardMarkup([[]]))
@@ -101,14 +104,6 @@ class MenuHandler(Handler):
 				update.callback_query.data.replace('_confirm_', '')
 			return history[-1]
 		return update.callback_query.data
-
-	@staticmethod
-	def _read_message(update, context, history):
-		if (message := update.effective_message).text:
-			context.user_data['user_input'] = message.text
-		else:
-			context.user_data['user_input'] = message.effective_attachment
-		return history[-1]
 
 	@staticmethod
 	def _find_menu(next_state, menu):

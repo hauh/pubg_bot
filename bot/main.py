@@ -59,8 +59,7 @@ def error(update, context):
 			except BadRequest:
 				pass
 		MenuHandler.send_message(
-			update.effective_chat,
-			context.user_data.setdefault('old_messages', []),
+			update.effective_chat, context,
 			*start(update, context, texts.menu)
 		)
 		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
