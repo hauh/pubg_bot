@@ -1,4 +1,4 @@
-'''User profile management'''
+"""User profile management"""
 
 import re
 import random
@@ -53,7 +53,7 @@ def with_input(setter):
 				update.callback_query.answer(
 					menu['answers'][answer], show_alert=True)
 			if back:
-				del context.user_data['history'][-1]
+				context.user_data['conversation'].back()
 				return back(update, context)
 
 		# if no input say what to do here
@@ -110,7 +110,7 @@ def check_income(update, context, menu):
 	update.effective_chat.send_action(ChatAction.TYPING)
 	if not (payment := qiwi.find_income(context.user_data['payment_code'])):
 		update.callback_query.answer(menu['answers']['nothing'], show_alert=True)
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return add_funds(update, context)
 
 	amount, qiwi_id = payment
@@ -119,7 +119,7 @@ def check_income(update, context, menu):
 	update.callback_query.answer(
 		menu['answers']['success'].format(amount), show_alert=True)
 	del context.user_data['payment_code']
-	del context.user_data['history'][-2:]
+	context.user_data['conversation'].back(level=2)
 	return profile_main(update, context)
 
 
@@ -169,14 +169,13 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 		update.callback_query.answer(menu['answers']['error'], show_alert=True)
 
 	del context.user_data['withdraw_details']['amount']
-	del context.user_data['history'][-1]
+	context.user_data['conversation'].back()
 	return profile_main(update, context)
 
 
 def get_withdraw_provider(update, context, menu):
-	history = context.user_data.get('history')
-	context.user_data['withdraw_details']['provider'] = history[-1]
-	del history[-2:]
+	context.user_data['withdraw_details']['provider'] = update.callback_query.data
+	context.user_data['conversation'].back(level=2)
 	return withdraw_money(update, context)
 
 

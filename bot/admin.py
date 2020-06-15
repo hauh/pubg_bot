@@ -1,9 +1,8 @@
-'''Admin menu'''
+"""Admin menu"""
 
 import re
 
 from telegram import ChatAction
-from telegram.error import TelegramError, Unauthorized
 
 import texts
 import database
@@ -69,7 +68,7 @@ def switch_admin(update, context, menu, admin_id, new_state):
 	database.update_user(admin_id, admin=new_state)
 	context.dispatcher.user_data[admin_id]['admin'] = new_state
 	update.callback_query.answer(menu['answers']['success'], show_alert=True)
-	del context.user_data['history'][-2:]
+	context.user_data['conversation'].back(level=2)
 	return admin_main(update, context)
 
 
@@ -94,9 +93,10 @@ def manage_matches(update, context, menu=manage_matches_menu):
 
 def with_game_to_manage(manage_game_func):
 	def find_game(update, context, *menu):
-		current_game_id = int(context.user_data['history'][-1].split('_')[-1])
+		game_button = context.user_data['conversation'].repeat()
+		picked_game_id = int(game_button.split('_')[-1])
 		for game in context.bot_data.get('games', []):
-			if game.slot_id == current_game_id and not game.is_finished:
+			if game.slot_id == picked_game_id and not game.is_finished:
 				return manage_game_func(update, context, game, *menu)
 		return manage_matches(update, context)
 	return find_game
@@ -109,7 +109,7 @@ def set_room(update, context, game, menu):
 	if id_and_pass := context.user_data.pop('validated_input', None):
 		game.run_game(*id_and_pass.split(','))
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return manage_matches(update, context)
 
 	# if no input ask for it
@@ -152,7 +152,7 @@ def set_winners(update, context, game, menu=set_winners_menu):
 	if context.user_data.pop('validated_input', None) and game.winners_are_set:
 		game.is_finished = True
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return manage_matches(update, context)
 
 	generate_table_button = utility.button(
@@ -193,7 +193,7 @@ def generate_table(update, context, game, menu):
 		excel.create_table(database.get_players(game.slot_id)),
 		filename=f'{game.pubg_id}.xlsx'
 	)
-	del context.user_data['history'][-1]
+	context.user_data['conversation'].back()
 	return set_winners(update, context)
 
 
@@ -231,14 +231,14 @@ def manage_users(update, context, menu):
 
 @with_admin_rights
 def change_user_balance(update, context, menu):
-	user_id = int(context.user_data['history'][-1].split('_')[-1])
+	user_id = int(update.callback_query.data.split('_')[-1])
 	user_data = context.dispatcher.user_data.get(user_id)
 
 	if amount := context.user_data.pop('validated_input', None):
 		user_data['balance'] = database.change_balance(
 			user_id, int(amount), 'by_admin', ext_id=update.effective_user.id)
 		update.callback_query.answer(menu['answers']['success'])
-		del context.user_data['history'][-2:]
+		context.user_data['conversation'].back(level=2)
 		return admin_main(update, context)
 
 	if user_input := context.user_data.pop('user_input', None):
@@ -261,7 +261,7 @@ def change_user_balance(update, context, menu):
 
 @with_admin_rights
 def switch_ban(update, context, menu):
-	user_id = int(context.user_data['history'][-1].split('_')[-1])
+	user_id = int(update.callback_query.data.split('_')[-1])
 	user_data = context.dispatcher.user_data.get(user_id)
 	user_data['banned'] = not user_data['banned']
 	database.update_user(user_id, banned=user_data['banned'])
@@ -269,36 +269,23 @@ def switch_ban(update, context, menu):
 		update.callback_query.answer(menu['answers']['unbanned'])
 	else:
 		update.callback_query.answer(menu['answers']['banned'])
-		for message_promise in user_data.pop('old_messages', []):
-			try:
-				message_promise.result().delete()
-			except TelegramError:
-				pass
+		if (user_conversation := user_data.pop('conversation', None)):
+			user_conversation.clean_chat()
 		for game in user_data.pop('picked_slots', []):
 			game.leave(user_id)
-	del context.user_data['history'][-2:]
+	context.user_data['conversation'].back(level=2)
 	return admin_main(update, context)
 
 
 @with_admin_rights
 def mailing(update, context, menu):
-	def spam(context):
-		try:
-			context.bot.send_message(*context.job.context)
-		except Unauthorized:
-			database.update_user(context.job.context[0], banned=True)
-		except TelegramError:
-			pass
-
 	# if confirmed start spam
 	if context.user_data.pop('validated_input', None):
-		users = database.find_user(admin=False, banned=False, fetch_all=True)
 		spam_message = context.bot_data.pop('spam_message')
-		for delay, user in enumerate(users):
-			context.job_queue.run_once(
-				spam, delay * 0.1, context=(user['id'], spam_message))
+		for user in database.find_user(admin=False, banned=False, fetch_all=True):
+			context.bot.send_message(user['id'], spam_message)
 		update.callback_query.answer(menu['answers']['success'])
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return admin_main(update, context)
 
 	# if got message ask to confirm
@@ -330,7 +317,7 @@ def switch_debug(update, context, menu):
 		update.callback_query.answer(menu['answers']['debug_on'], show_alert=True)
 		debug_mode.turn_on(context.bot)
 	context.bot_data['debug'] = not context.bot_data['debug']
-	del context.user_data['history'][-1]
+	context.user_data['conversation'].back()
 	return bot_settings(update, context)
 
 

@@ -1,4 +1,4 @@
-'''Menu where user creates and picks slots'''
+"""Menu where user creates and picks game slots"""
 
 import texts
 import utility
@@ -13,7 +13,7 @@ def matches_main(update, context, menu=matches_menu):
 	if (not context.user_data.get('pubg_id')
 	or not context.user_data.get('pubg_username')):
 		update.callback_query.answer(menu['answers']['pubg_required'])
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return (texts.menu['msg'], texts.menu['buttons'])
 
 	picked_slots = context.user_data.setdefault('picked_slots', set())
@@ -45,13 +45,14 @@ def matches_main(update, context, menu=matches_menu):
 def pick_slot(update, context, menu):
 	def done(answer):
 		update.callback_query.answer(menu['answers'][answer], show_alert=True)
-		del context.user_data['history'][-1]
+		context.user_data['conversation'].back()
 		return matches_main(update, context)
 
 	def find_slot():
-		slot_id = int(context.user_data['history'][-1].lstrip('slot_'))
+		slot_button = context.user_data['conversation'].repeat()
+		picked_slot_id = int(slot_button.split('_')[-1])
 		for slot in context.bot_data['slots']:
-			if slot.slot_id == slot_id:
+			if slot.slot_id == picked_slot_id:
 				return slot
 		return None
 
@@ -116,9 +117,9 @@ def setup_slot(update, context, menu=matches_menu['next']['slot_']):
 
 
 def get_slot_setting(update, context, menu):
-	history = context.user_data.get('history')
-	context.user_data['slot_settings'][history[-2]] = history[-1]
-	del history[-2:]
+	conv = context.user_data['conversation']
+	context.user_data['slot_settings'][conv.back()] = update.callback_query.data
+	conv.back()
 	return setup_slot(update, context)
 
 

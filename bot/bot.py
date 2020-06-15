@@ -1,7 +1,8 @@
-'''Custom bot with Message Queue for avoiding flood, and logging exceptions'''
+"""Custom bot with Message Queue for avoiding flood, and logging exceptions"""
 
 import logging
 
+from telegram import ParseMode
 from telegram.bot import Bot as PTBot
 from telegram.ext.messagequeue import queuedmessage
 from telegram.error import BadRequest
@@ -12,7 +13,7 @@ logger = logging.getLogger('bot')
 
 
 class Bot(PTBot):
-	'''Sends all messages through timed queue, logs requests errors'''
+	"""Sends all messages through timed queue, logs requests errors"""
 
 	def __init__(self, *args, msg_queue, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -26,15 +27,15 @@ class Bot(PTBot):
 			pass
 
 	@queuedmessage
-	def send_message(self, *args, **kwargs):
-		return super().send_message(*args, **kwargs)
+	def send_message(self, *args, parse_mode=ParseMode.MARKDOWN, **kwargs):
+		return super().send_message(*args, parse_mode, **kwargs)
 
 	def delete_message(self, chat_id, *args, **kwargs):
 		try:
 			super().delete_message(chat_id, *args, **kwargs)
 		except BadRequest as err:
 			logger.error(
-				"Deleting message in chat %s failed", chat_id,
+				"Deleting message in chat %s failed:", chat_id,
 				exc_info=(type(err), err, None)
 			)
 
@@ -43,6 +44,6 @@ class Bot(PTBot):
 			super().answer_callback_query(callback_query_id, text, **kwargs)
 		except BadRequest as err:
 			logger.error(
-				"Answering query id %s (%s) failed", callback_query_id, text,
+				"Answering query id %s (%s) failed:", callback_query_id, text,
 				exc_info=(type(err), err, None)
 			)

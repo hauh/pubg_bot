@@ -1,13 +1,11 @@
-'''Main, bot starts here'''
+"""Main, bot starts here"""
 
 import sys
 from logging import getLogger
 
-from telegram import ParseMode
-from telegram.ext import Defaults, Updater
+from telegram.ext import Updater
 from telegram.ext.messagequeue import MessageQueue
 from telegram.utils.request import Request
-from telegram.error import BadRequest
 
 import config
 import database
@@ -23,7 +21,7 @@ from menu_handler import MenuHandler
 
 ########################
 
-logger = getLogger('bot')
+logger = getLogger('main')
 
 
 def start(update, context, menu):
@@ -53,20 +51,24 @@ def start(update, context, menu):
 
 
 def error(update, context):
-	if update and context.user_data:
-		if update.callback_query:
-			try:
-				update.callback_query.answer(texts.error, show_alert=True)
-			except BadRequest:
-				pass
+	err = (type(context.error), context.error, None)
+
+	if not update or not context.user_data:
+		logger.error("Bot broke down!", exc_info=err)
+		return
+
+	conversation = context.user_data.get('conversation')
+	logger.error(
+		"User %s broke down bot, conversation:\n%s",
+		update.effective_user.id, str(conversation), exc_info=err
+	)
+	if update.callback_query:
+		update.callback_query.answer(texts.error, show_alert=True)
+	if conversation:
 		MenuHandler.send_message(
-			update.effective_chat, context,
+			update.effective_chat, conversation,
 			*start(update, context, texts.menu)
 		)
-		log_entry = f"User broke down bot here: {context.user_data.get('history')}"
-	else:
-		log_entry = "Bot broke down!"
-	logger.error(log_entry, exc_info=(type(context.error), context.error, None))
 
 
 def init_menu():
@@ -110,14 +112,13 @@ def main():
 	updater = Updater(
 		bot=Bot(
 			config.bot_token,
-			defaults=Defaults(parse_mode=ParseMode.MARKDOWN),
-			request=Request(
-				con_pool_size=10,
-				proxy_url=config.proxy if config.proxy else None
-			),
 			msg_queue=MessageQueue(
 				all_burst_limit=29,
 				all_time_limit_ms=1017
+			),
+			request=Request(
+				con_pool_size=10,
+				proxy_url=config.proxy if config.proxy else None
 			)
 		),
 		use_context=True
