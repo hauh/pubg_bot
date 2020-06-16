@@ -7,8 +7,7 @@ from psycopg2.extras import RealDictCursor
 from psycopg2.sql import SQL, Identifier
 
 import queries
-import qiwi
-from config import db_url
+from config import database_url as DB_URL
 
 ##############################
 
@@ -18,7 +17,7 @@ logger = getLogger('db')
 def with_connection(db_transaction):
 	def execute_with_connection(*args, **kwargs):
 		try:
-			with psycopg2.connect(db_url, sslmode='require') as conn:
+			with psycopg2.connect(DB_URL, sslmode='require') as conn:
 				with conn.cursor(cursor_factory=RealDictCursor) as cursor:
 					return db_transaction(cursor, *args, **kwargs)
 		except Exception as err:
@@ -176,21 +175,27 @@ def change_balance(cursor, user_id, amount, reason, slot_id=None, ext_id=None):
 	return cursor.fetchone()['balance']
 
 
-@with_connection
-def withdraw_money(cursor, user_id, **details):
-	cursor.execute(
-		queries.change_balance,
-		(user_id, details['amount'], 'withdraw', None, None)
-	)
-	if not (qiwi_id := qiwi.make_payment(**details)):
-		cursor.connection.rollback()
-		logger.error("Withdraw for user id %s (%s) failed", user_id, details)
-		return None
-	transaction_id = cursor.fetchone()['id']
-	cursor.execute(
-		queries.update_transaction_id,
-		(qiwi_id, transaction_id)
-	)
-	cursor.execute(queries.get_balance, (user_id,))
-	logger.info("User id %s withdrew %s", user_id, details['amount'])
-	return cursor.fetchone()['balance']
+def withdraw_money(user_id, amount):
+	"""Inserting transaction and yielding it's id, then waiting for `external_id`
+	from payment provider. If a request to provider has failed for some reason,
+	should get None and make rollback, else update entry with the id.
+	"""
+	with psycopg2.connect(DB_URL, sslmode='require') as connection:
+		with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+			cursor.execute(
+				queries.change_balance,
+				(user_id, -amount, 'withdraw', None, None)
+			)
+			transaction_id = cursor.fetchone()['id']
+			if not (external_id := (yield transaction_id)):
+				connection.rollback()
+				yield None
+			else:
+				cursor.execute(
+					queries.update_transaction_id,
+					(external_id, transaction_id)
+				)
+				cursor.execute(queries.get_balance, (user_id,))
+				logger.info("User id %s withdrew %s", user_id, amount)
+				connection.commit()
+				yield cursor.fetchone()['balance']

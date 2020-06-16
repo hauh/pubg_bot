@@ -20,13 +20,19 @@ webhook_kwargs = {
 	# 'allowed_updates': ['message', 'callback_query']  # bugged in ptb
 }
 proxy = os.getenv('PROXY')
-db_url = os.environ['DATABASE']
+database_url = os.environ['DATABASE']
 debug_server = "http://localhost:7777/"
 debug_chat = os.environ['DEBUG_CHAT']
 
-# qiwi
-qiwi_token = os.environ['QIWI_TOKEN']
-qiwi_phone = os.environ['QIWI_PHONE']
+# payments
+unitpay_url = f"https://unitpay.money/pay/{os.environ['UNITPAY_KEY']}"
+unitpay_secret = os.environ['UNITPAY_SECRET']
+unitpay_api = "https://unitpay.money/api"
+unitpay_auth_params = {
+	'params[projectId]': os.environ['UNITPAY_PROJECT_ID'],
+	'params[login]': os.environ['UNITPAY_EMAIL'],
+	'params[secretKey]': os.environ['UNITPAY_API_KEY']
+}
 
 # logging
 os.makedirs('logs', exist_ok=True)
