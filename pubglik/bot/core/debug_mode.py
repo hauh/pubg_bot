@@ -1,4 +1,4 @@
-'''Monkey patching bot instance to redirect requests to debug chat'''
+"""Monkey patching bot instance to redirect requests to debug chat"""
 
 # pylint: disable=protected-access
 
@@ -7,8 +7,8 @@ import logging
 
 import requests
 
-import database as db
-from config import debug_server as DEBUG_SERVER, debug_chat as DEBUG_CHAT
+from pubglik import database as db
+from pubglik.config import debug_server as DBG_SERVER, debug_chat as DBG_CHAT
 
 ##############################
 
@@ -16,7 +16,7 @@ logger = logging.getLogger('debug_mode')
 
 
 class TelegramRequestWrapper():
-	'''Redirects requests to debug chat and sends copies to debug server'''
+	"""Redirects requests to debug chat and sends copies to debug server"""
 
 	def __init__(self, original_request_handler, admins):
 		self.saved_handler = original_request_handler
@@ -31,7 +31,7 @@ class TelegramRequestWrapper():
 		if 'chat_id' in data:
 			copy.update(chat_id=data['chat_id'])
 			if int(data['chat_id']) not in self.admins:
-				data['chat_id'] = DEBUG_CHAT
+				data['chat_id'] = DBG_CHAT
 		if method != 'answerCallbackQuery':
 			result = self.saved_handler.post(url, data, timeout)
 			copy.update(result=result)
@@ -49,7 +49,7 @@ class TelegramRequestWrapper():
 	@staticmethod
 	def to_debug(data):
 		try:
-			requests.post(DEBUG_SERVER, data=json.dumps(data))
+			requests.post(DBG_SERVER, data=json.dumps(data))
 		except requests.exceptions.RequestException:
 			pass
 

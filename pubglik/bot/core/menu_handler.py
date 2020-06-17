@@ -5,7 +5,7 @@ from telegram.ext import Handler
 from telegram.error import BadRequest
 from telegram.constants import MAX_MESSAGE_LENGTH
 
-from utility import Conversation
+from .utility import Conversation
 
 ###################
 

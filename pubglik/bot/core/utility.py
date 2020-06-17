@@ -3,8 +3,8 @@
 from telegram import InlineKeyboardButton
 from telegram.error import TelegramError
 
-import texts
-import config
+from pubglik.config import admin_group_id as ADMINS
+from pubglik.bot.texts import confirm as CONFIRM_TEXT
 
 ##############################
 
@@ -55,7 +55,7 @@ def button(callback_data, text):
 	return [InlineKeyboardButton(text, callback_data=callback_data)]
 
 
-def confirm_button(callback_data, text=texts.confirm):
+def confirm_button(callback_data, text=CONFIRM_TEXT):
 	return button(f'_confirm_{callback_data}', text)
 
 
@@ -71,4 +71,4 @@ def notify(users, text, context, *, expires=None):
 
 
 def notify_admins(text, context, *, expires=None):
-	notify([config.admin_group_id], text, context, expires=expires)
+	notify([ADMINS], text, context, expires=expires)

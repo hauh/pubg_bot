@@ -1,21 +1,21 @@
-'''Jobs checking slots to start and games to run'''
+"""Jobs checking slots to start and games to run"""
 
 from logging import getLogger
 from datetime import datetime, timedelta
 
-import config
-import texts
-import database
-import utility
-from slot import Slot
+from pubglik import database
+from pubglik.config import times as TIMES, timezone as TIMEZONE
+from pubglik.bot import texts
+from pubglik.bot.core import utility
+from .slot import Slot
 
 ###############
 
 logger = getLogger('jobs')
 
-CLOSE_TIME = timedelta(minutes=config.times['close_slot'])
-SLOT_INTERVAL = timedelta(minutes=config.times['slot_interval'])
-SEND_ROOM_BEFORE = timedelta(minutes=config.times['send_room'])
+CLOSE_TIME = timedelta(minutes=TIMES['close_slot'])
+SLOT_INTERVAL = timedelta(minutes=TIMES['slot_interval'])
+SEND_ROOM_BEFORE = timedelta(minutes=TIMES['send_room'])
 DELETE_SLOT_MESSAGE_TIME = timedelta(hours=3)
 
 
@@ -37,7 +37,7 @@ def restore_state(context):
 
 
 def check_slots_and_games(context):
-	slot_expiration_time = datetime.now(config.timezone) + CLOSE_TIME
+	slot_expiration_time = datetime.now(TIMEZONE) + CLOSE_TIME
 	waiting_slots = []
 	running_games = []
 

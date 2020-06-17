@@ -1,20 +1,23 @@
-'''Slot class collects players, stores game info and distributes rewards'''
+"""Slot class collects players, stores game info and distributes rewards"""
 
-import config
-import database
-import game
-from texts import match_settings as SETTINGS
+from pubglik import database
+from pubglik.config import (
+	max_players as MAX_PLAYERS,
+	enough_players as ENOUGH_PLAYERS
+)
+from pubglik.bot.texts import match_settings as SETTINGS
+from . import games
 
 ##############################
 
 
 class Slot:
-	'''
+	"""
 	Slot instantiated with a specifict datetime.time (game start time).	Slot
 	stores and updates database with joined or left players, game settings,
 	game room id and password, and prizes, which Slot can calculate for every
 	player and yield.
-	'''
+	"""
 
 	def __init__(self, time, **kwargs):
 		self.slot_id = kwargs.get('id') or database.create_slot(time)
@@ -44,11 +47,11 @@ class Slot:
 
 	@property
 	def is_full(self):
-		return len(self.players) >= config.max_players
+		return len(self.players) >= MAX_PLAYERS
 
 	@property
 	def is_ready(self):
-		return len(self.players) >= config.enough_players
+		return len(self.players) >= ENOUGH_PLAYERS
 
 	@property
 	def is_set(self):
@@ -88,12 +91,12 @@ class Slot:
 		database.update_slot(self.slot_id, pubg_id=pubg_id, room_pass=room_pass)
 		self.pubg_id = pubg_id
 		self.room_pass = room_pass
-		self.game = game.factory(self.settings, self.bet, self.players)
+		self.game = games.factory(self.settings, self.bet, self.players)
 
 	def reset_results(self):
 		for results in self.players.values():
 			results.clear()
-		self.game = game.factory(self.settings, self.players)
+		self.game = games.factory(self.settings, self.players)
 
 	def reward(self):
 		for user_id, result in self.players.items():

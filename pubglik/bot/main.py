@@ -7,17 +7,10 @@ from telegram.ext import Updater
 from telegram.ext.messagequeue import MessageQueue
 from telegram.utils.request import Request
 
-import config
-import database
-import texts
-import jobs
-import utility
-import admin
-import matches
-import cabinet
-
-from bot import Bot
-from menu_handler import MenuHandler
+from pubglik import config, database
+from . import texts, games
+from .menus import admin, matches, cabinet
+from .core import Bot, MenuHandler, utility
 
 ########################
 
@@ -128,8 +121,8 @@ def main():
 	updater.dispatcher.add_error_handler(error)
 	updater.dispatcher.bot_data['debug'] = False
 
-	updater.job_queue.run_once(jobs.restore_state, 0)
-	updater.job_queue.run_repeating(jobs.check_slots_and_games, 300, first=60)
+	updater.job_queue.run_once(games.restore_state, 0)
+	updater.job_queue.run_repeating(games.check_slots_and_games, 300, first=60)
 
 	updater.start_webhook(**config.webhook_kwargs)
 	logger.info("Bot started")
@@ -137,7 +130,3 @@ def main():
 	updater.idle()
 
 	logger.info("Bot stopped")
-
-
-if __name__ == '__main__':
-	main()

@@ -1,4 +1,4 @@
-'''Postgress database operations'''
+"""Postgress database operations"""
 
 from logging import getLogger
 
@@ -6,8 +6,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.sql import SQL, Identifier
 
-import queries
-from config import database_url as DB_URL
+from pubglik.config import database_url as DB_URL
+from . import queries
 
 ##############################
 

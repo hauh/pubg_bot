@@ -1,4 +1,4 @@
-'''Configuration file'''
+"""Configuration file"""
 
 import os
 import logging

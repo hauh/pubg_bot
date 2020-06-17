@@ -1,7 +1,7 @@
 """Menu where user creates and picks game slots"""
 
-import texts
-import utility
+from pubglik.bot import texts
+from pubglik.bot.core import utility
 
 ##############################
 

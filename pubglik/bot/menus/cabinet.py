@@ -5,10 +5,10 @@ import re
 from telegram import ChatAction
 from psycopg2.errors import UniqueViolation
 
-import texts
-import database
-import unitpay
-import utility
+from pubglik import database
+from pubglik.bot import texts
+from pubglik.bot.core import utility
+from pubglik.bot.misc import unitpay
 
 ##############################
 

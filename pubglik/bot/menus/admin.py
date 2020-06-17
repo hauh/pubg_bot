@@ -4,11 +4,10 @@ import re
 
 from telegram import ChatAction
 
-import texts
-import database
-import excel
-import utility
-import debug_mode
+from pubglik import database
+from pubglik.bot import texts
+from pubglik.bot.core import debug_mode, utility
+from pubglik.bot.misc import excel
 
 ##############################
 

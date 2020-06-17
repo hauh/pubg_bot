@@ -1,6 +1,6 @@
-'''All bot's texts located here in dict with specific structure'''
+"""All bot's texts located here in dict with specific structure"""
 
-import config
+from pubglik import config
 
 # match settings
 match_settings = {

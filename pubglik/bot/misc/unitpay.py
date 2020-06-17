@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from config import (
+from pubglik.config import (
 	unitpay_url as URL,
 	unitpay_secret as SECRET,
 	unitpay_api as API,

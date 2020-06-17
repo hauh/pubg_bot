@@ -1,4 +1,4 @@
-'''Postgress database queries'''
+"""Postgress database queries"""
 
 init_db = (
 	"""

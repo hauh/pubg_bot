@@ -1,6 +1,6 @@
-'''Game classes for running games in slots'''
+"""Game classes for running games in slots"""
 
-from config import prizes as PRIZES
+from pubglik.config import prizes as PRIZES
 
 
 def factory(game_type, bet, players):
@@ -18,7 +18,7 @@ def factory(game_type, bet, players):
 
 
 class Game:
-	'''Base class for all game types'''
+	"""Base class for all game types"""
 
 	def __init__(self, players, bet):
 		self.players = players
@@ -30,7 +30,7 @@ class Game:
 
 
 class SurvivalType(Game):
-	'''Base class for survival-type games'''
+	"""Base class for survival-type games"""
 
 	def __init__(self, players, bet, **kwargs):
 		super().__init__(players, bet)
@@ -58,7 +58,7 @@ class SurvivalType(Game):
 
 
 class KillsType(Game):
-	'''Base class for kills-type games'''
+	"""Base class for kills-type games"""
 
 	def __init__(self, players, bet, **kwarg):
 		super().__init__(players, bet)
@@ -101,7 +101,7 @@ class Kills(KillsType):
 
 
 class Mixed(SurvivalType, KillsType):
-	'''Mixed survival/kills game'''
+	"""Mixed survival/kills game"""
 
 	def __init__(self, players, bet):
 		super().__init__(

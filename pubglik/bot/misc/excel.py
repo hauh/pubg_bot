@@ -1,4 +1,4 @@
-'''Reading and creating excel files'''
+"""Reading and creating excel files"""
 
 from io import BytesIO, BufferedWriter
 from zipfile import BadZipFile
