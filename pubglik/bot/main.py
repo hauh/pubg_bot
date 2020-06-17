@@ -9,7 +9,7 @@ from telegram.utils.request import Request
 
 from pubglik import config, database
 from . import texts, games
-from .menus import admin, matches, cabinet
+from .menus import admin, tournaments, cabinet
 from .core import Bot, MenuHandler, utility
 
 ########################
@@ -50,18 +50,19 @@ def error(update, context):
 		logger.error("Bot broke down!", exc_info=err)
 		return
 
-	conversation = context.user_data.get('conversation')
-	logger.error(
-		"User %s broke down bot, conversation:\n%s",
-		update.effective_user.id, str(conversation), exc_info=err
-	)
 	if update.callback_query:
 		update.callback_query.answer(texts.error, show_alert=True)
-	if conversation:
-		MenuHandler.send_message(
-			update.effective_chat, conversation,
-			*start(update, context, texts.menu)
-		)
+		failed_message = update.callback_query.data
+		update.callback_query.data = '_main_'
+	else:
+		failed_message = update.message.text
+		update.message.text = '/start'
+	logger.error(
+		"User %s broke down bot in menu %s, failed message: %s",
+		update.effective_user.id, str(context.user_data.get('conversation')),
+		failed_message, exc_info=err
+	)
+	context.dispatcher.process_update(update)
 
 
 def init_menu():
@@ -86,7 +87,7 @@ def init_menu():
 	# adding callbacks to menu
 	texts.menu['callback'] = start
 	admin.add_callbacks()
-	matches.add_callbacks()
+	tournaments.add_callbacks()
 	cabinet.add_callbacks()
 
 
@@ -105,6 +106,7 @@ def main():
 	updater = Updater(
 		bot=Bot(
 			config.bot_token,
+			admin_chat=config.admin_chat,
 			msg_queue=MessageQueue(
 				all_burst_limit=29,
 				all_time_limit_ms=1017
@@ -112,14 +114,13 @@ def main():
 			request=Request(
 				con_pool_size=10,
 				proxy_url=config.proxy if config.proxy else None
-			)
+			),
 		),
 		use_context=True
 	)
 
 	updater.dispatcher.add_handler(MenuHandler(texts.menu))
 	updater.dispatcher.add_error_handler(error)
-	updater.dispatcher.bot_data['debug'] = False
 
 	updater.job_queue.run_once(games.restore_state, 0)
 	updater.job_queue.run_repeating(games.check_slots_and_games, 300, first=60)

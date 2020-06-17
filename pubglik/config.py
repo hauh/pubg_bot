@@ -50,7 +50,7 @@ logging.basicConfig(
 # management
 if admin_id := os.getenv('ADMIN_ID'):
 	admin_id = [int(i) for i in admin_id.split(',')]
-admin_group_id = os.environ['ADMIN_GROUP_ID']
+admin_chat = os.getenv('ADMIN_CHAT')
 battle_chat = os.environ['CHAT_URL']
 
 # tournaments
@@ -60,6 +60,7 @@ times = {
 	'close_slot': 30,
 	'send_room': 15,
 }
+max_slots = 24
 max_players = 70
 enough_players = 70
 bets = {

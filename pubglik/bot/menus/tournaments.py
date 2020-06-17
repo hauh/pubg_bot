@@ -5,11 +5,11 @@ from pubglik.bot.core import utility
 
 ##############################
 
-matches_menu = texts.menu['next']['matches']
+tournaments_menu = texts.menu['next']['tournaments']
 MATCH_SETTINGS = texts.match_settings
 
 
-def matches_main(update, context, menu=matches_menu):
+def tournaments_main(update, context, menu=tournaments_menu):
 	if (not context.user_data.get('pubg_id')
 	or not context.user_data.get('pubg_username')):
 		update.callback_query.answer(menu['answers']['pubg_required'])
@@ -35,7 +35,7 @@ def matches_main(update, context, menu=matches_menu):
 	return (
 		menu['msg'].format(
 			balance=context.user_data['balance'],
-			matches='\n'.join(str(slot) for slot in picked_slots)
+			tournaments='\n'.join(str(slot) for slot in picked_slots)
 				if picked_slots else menu['default']
 		),
 		slots_buttons + menu['buttons']
@@ -46,7 +46,7 @@ def pick_slot(update, context, menu):
 	def done(answer):
 		update.callback_query.answer(menu['answers'][answer], show_alert=True)
 		context.user_data['conversation'].back()
-		return matches_main(update, context)
+		return tournaments_main(update, context)
 
 	def find_slot():
 		slot_button = context.user_data['conversation'].repeat()
@@ -100,7 +100,7 @@ def pick_slot(update, context, menu):
 	return done('joined')
 
 
-def setup_slot(update, context, menu=matches_menu['next']['slot_']):
+def setup_slot(update, context, menu=tournaments_menu['next']['slot_']):
 	settings = context.user_data.setdefault(
 		'slot_settings', dict.fromkeys(['type', 'mode', 'view', 'bet'], None))
 	answer = menu['msg'].format(
@@ -126,8 +126,8 @@ def get_slot_setting(update, context, menu):
 ##############################
 
 def add_callbacks():
-	matches_menu['callback'] = matches_main
-	matches_menu['next']['slot_']['callback'] = pick_slot
-	for setting_menu in matches_menu['next']['slot_']['next'].values():
+	tournaments_menu['callback'] = tournaments_main
+	tournaments_menu['next']['slot_']['callback'] = pick_slot
+	for setting_menu in tournaments_menu['next']['slot_']['next'].values():
 		for setting_choice in setting_menu['next'].values():
 			setting_choice['callback'] = get_slot_setting

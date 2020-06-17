@@ -103,9 +103,9 @@ def add_funds(update, context, user_input, validated):
 	if not validated:
 		return re.match(r'^[1-9][0-9]{1,4}$', user_input)
 
-	btn = utility.button(None, texts.goto_payment.format(user_input))
-	btn[0].url = unitpay.invoice_url(str(update.effective_user.id), user_input)
 	menu = profile_menu['next']['add_funds']
+	btn = utility.button(None, menu['answers']['goto_payment'].format(user_input))
+	btn[0].url = unitpay.invoice_url(str(update.effective_user.id), user_input)
 	return None, lambda *_: (menu['msg'], [btn] + menu['buttons'])
 
 
@@ -151,10 +151,9 @@ def withdraw_money(update, context, menu=withdraw_money_menu):
 		answer, payment_id = unitpay.make_payment(transaction_id, total, **details)
 	except OSError as err:  # connection error or problems with account
 		answer, payment_id = menu['answers']['error'], None
-		utility.notify_admins(
+		context.bot.notify_admins(
 			texts.payment_error.format(
 				user_id, context.user_data['pubg_username'], err.args[0]),
-			context
 		)
 	try:
 		# if payment_id is None means payment failed means no new balance, reconfirm

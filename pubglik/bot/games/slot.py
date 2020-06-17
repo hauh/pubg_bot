@@ -112,3 +112,6 @@ class Slot:
 					user_id, prize, 'prize', slot_id=self.slot_id)
 				yield (user_id, prize, place, kills)
 		database.update_slot(self.slot_id, finished=True)
+
+	def delete(self):
+		database.delete_slot(self.slot_id)

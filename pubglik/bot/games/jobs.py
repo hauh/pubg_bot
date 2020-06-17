@@ -4,9 +4,12 @@ from logging import getLogger
 from datetime import datetime, timedelta
 
 from pubglik import database
-from pubglik.config import times as TIMES, timezone as TIMEZONE
+from pubglik.config import (
+	times as TIMES,
+	timezone as TIMEZONE,
+	max_slots as MAX_SLOTS
+)
 from pubglik.bot import texts
-from pubglik.bot.core import utility
 from .slot import Slot
 
 ###############
@@ -43,21 +46,16 @@ def check_slots_and_games(context):
 
 	# checking waiting slots
 	for slot in context.bot_data.setdefault('slots', []):
-		# requesting room id and pass and waiting for start
+		# requesting room id and pass and schedule start
 		if slot.is_ready:
 			running_games.append(slot)
+			context.bot.notify_admins(texts.slot_is_ready['admins'].format(str(slot)))
 			next_step_time = slot.time - SEND_ROOM_BEFORE
-			utility.notify_admins(
-				texts.slot_is_ready.format(str(slot)),
-				context, expires=next_step_time
+			_alert_players(
+				context, slot.players, next_step_time,
+				texts.slot_is_ready['users'].format(str(slot))
 			)
-			utility.notify(
-				slot.players,
-				texts.match_is_starting_soon.format(str(slot)),
-				context, expires=next_step_time
-			)
-			context.job_queue.run_once(
-				_start_game, next_step_time, context=slot)
+			context.job_queue.run_once(_start_game, next_step_time, context=slot)
 			logger.info("Slot [%s] is waiting for room and pass", str(slot))
 
 		# deleting expired slot
@@ -71,7 +69,7 @@ def check_slots_and_games(context):
 			waiting_slots.append(slot)
 
 	# filling waiting slots with new ones
-	while len(waiting_slots) < 24:
+	while len(waiting_slots) < MAX_SLOTS:
 		try:
 			waiting_slots.append(Slot(waiting_slots[-1].time + SLOT_INTERVAL))
 		except IndexError:
@@ -99,65 +97,66 @@ def check_slots_and_games(context):
 			player_data['games_played'] += 1
 			player_data['picked_slots'].discard(game)
 			total_payouts += prize
-			utility.notify(
-				[user_id],
-				texts.victory.format(
+			context.bot.send_message(
+				user_id,
+				texts.game_ended['users'].format(
 					game=str(game),
 					place=texts.winner_place.format(place) if place else "",
 					kills=texts.kills_count.format(kills) if kills else "",
 					prize=prize
-				),
-				context
+				)
 			)
-		utility.notify_admins(
-			texts.match_ended.format(
+		context.bot.notify_admins(
+			texts.game_ended['admins'].format(
 				game=str(game), pubg_id=game.pubg_id,
 				total_bets=game.prize_fund, prizes=total_payouts
-			),
-			context
+			)
 		)
 		logger.info(
 			"Game %s (PUBG ID %s) finished, total bets: %s, payouts: %s",
 			game.slot_id, game.pubg_id, game.prize_fund, total_payouts
 		)
-		del game
 
 	context.bot_data['games'] = running_games
 
 
 def _start_game(context):
-	game = context.job.context
-	if not game.is_room_set:
+	if (game := context.job.context).is_room_set:
+		context.bot.notify_admins(
+			texts.game_is_starting['admins'].format(str(game), game.pubg_id))
+		_alert_players(
+			context, game.players, DELETE_SLOT_MESSAGE_TIME,
+			texts.game_is_starting['users'].format(
+				str(game), game.pubg_id, game.room_pass)
+		)
+		logger.info("Game %s - %s started!", game.slot_id, str(game))
+
+	else:
+		context.bot.notify_admins(texts.game_failed.format(str(game)))
+		_delete_slot(context, game)
 		logger.error(
 			"Game %s - %s canceled because no room for it was created!",
 			game.slot_id, str(game)
 		)
-		utility.notify_admins(texts.match_failed.format(str(game)), context)
-		_delete_slot(context, game)
-		return
-
-	utility.notify_admins(
-		texts.match_started.format(str(game), game.pubg_id),
-		context, expires=DELETE_SLOT_MESSAGE_TIME
-	)
-	utility.notify(
-		game.players,
-		texts.match_is_nigh.format(str(game), game.pubg_id, game.room_pass),
-		context, expires=DELETE_SLOT_MESSAGE_TIME
-	)
-	context.bot_data.setdefault('games', []).append(game)
-	logger.info("Game %s - %s started!", game.slot_id, str(game))
 
 
 def _delete_slot(context, slot):
-	database.delete_slot(slot.slot_id)
+	slot.delete()
 	for user_id in slot.players:
 		player_data = context.dispatcher.user_data.get(user_id)
 		player_data['balance'] += slot.bet
 		player_data['picked_slots'].discard(slot)
-	utility.notify(
-		slot.players,
-		texts.match_didnt_happen.format(str(slot)),
-		context, expires=DELETE_SLOT_MESSAGE_TIME
+	_alert_players(
+		context, slot.players, DELETE_SLOT_MESSAGE_TIME,
+		texts.game_didnt_happen.format(str(slot))
 	)
-	del slot
+
+
+def _alert_players(context, players, expires, text):
+	alerts = []
+	for player_id in players:
+		context.bot.send_message(player_id, text, container=alerts)
+	context.job_queue.run_once(
+		lambda c: [c.bot.delete_message(msg) for msg in c.job.context],
+		expires, context=alerts
+	)

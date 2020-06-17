@@ -91,7 +91,7 @@ def get_balance_history(cursor, user_id):
 	return cursor.fetchall()
 
 
-# matches
+# tournaments
 @with_connection
 def create_slot(cursor, start_time):
 	cursor.execute(queries.create_slot, (start_time,))

@@ -6,14 +6,14 @@ from telegram import ChatAction
 
 from pubglik import database
 from pubglik.bot import texts
-from pubglik.bot.core import debug_mode, utility
+from pubglik.bot.core import utility
 from pubglik.bot.misc import excel
 
 ##############################
 
 admin_menu = texts.menu['next']['admin']
-manage_matches_menu = admin_menu['next']['manage_matches']
-set_winners_menu = manage_matches_menu['next']['set_winners_']
+manage_tournaments_menu = admin_menu['next']['manage_tournaments']
+set_winners_menu = manage_tournaments_menu['next']['set_winners_']
 manage_admins_menu = admin_menu['next']['manage_admins']
 manage_users_menu = admin_menu['next']['manage_users']
 bot_settings_menu = admin_menu['next']['bot_settings']
@@ -72,7 +72,7 @@ def switch_admin(update, context, menu, admin_id, new_state):
 
 
 @with_admin_rights
-def manage_matches(update, context, menu=manage_matches_menu):
+def manage_tournaments(update, context, menu=manage_tournaments_menu):
 	games_buttons = []
 	for game in context.bot_data.get('games', []):
 		if not game.is_running:
@@ -97,7 +97,7 @@ def with_game_to_manage(manage_game_func):
 		for game in context.bot_data.get('games', []):
 			if game.slot_id == picked_game_id and not game.is_finished:
 				return manage_game_func(update, context, game, *menu)
-		return manage_matches(update, context)
+		return manage_tournaments(update, context)
 	return find_game
 
 
@@ -109,7 +109,7 @@ def set_room(update, context, game, menu):
 		game.run_game(*id_and_pass.split(','))
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		context.user_data['conversation'].back()
-		return manage_matches(update, context)
+		return manage_tournaments(update, context)
 
 	# if no input ask for it
 	if not (id_and_pass := context.user_data.pop('user_input', None)):
@@ -152,7 +152,7 @@ def set_winners(update, context, game, menu=set_winners_menu):
 		game.is_finished = True
 		update.callback_query.answer(menu['answers']['success'], show_alert=True)
 		context.user_data['conversation'].back()
-		return manage_matches(update, context)
+		return manage_tournaments(update, context)
 
 	generate_table_button = utility.button(
 		f'generate_table_{game.slot_id}', menu['btn_template'])
@@ -300,7 +300,7 @@ def mailing(update, context, menu):
 
 @with_admin_rights
 def bot_settings(update, context, menu=bot_settings_menu):
-	if context.bot_data['debug']:
+	if context.bot.debug_mode:
 		debug_btn = menu['extra_buttons']['debug_off']
 	else:
 		debug_btn = menu['extra_buttons']['debug_on']
@@ -309,13 +309,11 @@ def bot_settings(update, context, menu=bot_settings_menu):
 
 @with_admin_rights
 def switch_debug(update, context, menu):
-	if context.bot_data['debug']:
-		debug_mode.turn_off(context.bot)
-		update.callback_query.answer(menu['answers']['debug_off'])
-	else:
+	context.bot.switch_debug_mode()
+	if context.bot.debug_mode:
 		update.callback_query.answer(menu['answers']['debug_on'], show_alert=True)
-		debug_mode.turn_on(context.bot)
-	context.bot_data['debug'] = not context.bot_data['debug']
+	else:
+		update.callback_query.answer(menu['answers']['debug_off'])
 	context.user_data['conversation'].back()
 	return bot_settings(update, context)
 
@@ -326,8 +324,8 @@ def add_callbacks():
 	admin_menu['callback'] = admin_main
 	admin_menu['next']['mailing']['callback'] = mailing
 
-	manage_matches_menu['callback'] = manage_matches
-	manage_matches_menu['next']['set_room_']['callback'] = set_room
+	manage_tournaments_menu['callback'] = manage_tournaments
+	manage_tournaments_menu['next']['set_room_']['callback'] = set_room
 
 	set_winners_menu['callback'] = set_winners
 	set_winners_menu['next']['generate_table_']['callback'] = generate_table

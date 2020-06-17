@@ -3,7 +3,6 @@
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import Handler
 from telegram.error import BadRequest
-from telegram.constants import MAX_MESSAGE_LENGTH
 
 from .utility import Conversation
 
@@ -42,21 +41,6 @@ class MenuHandler(Handler):
 	def __init__(self, menu):
 		self.menu = menu
 		super().__init__(callback=None)
-
-	@staticmethod
-	def send_message(chat, conversation, text, buttons=[]):
-		"""Sending message (in chunks if it's too big) after deleting previous"""
-
-		conversation.messages.delete_all()
-
-		while len(text) > MAX_MESSAGE_LENGTH:
-			if (i_max := text.rfind('\n', end=MAX_MESSAGE_LENGTH)) == -1:
-				i_max = text.rfind(' ', end=MAX_MESSAGE_LENGTH)
-			conversation.messages.append(chat.send_message(text[:i_max]))
-			text = text[i_max + 1:]
-
-		keyboard = InlineKeyboardMarkup(buttons) if any(buttons) else None
-		conversation.messages.append(chat.send_message(text, reply_markup=keyboard))
 
 	@staticmethod
 	def check_update(update):
@@ -104,11 +88,18 @@ class MenuHandler(Handler):
 		else:
 			text, buttons = menu['msg'], menu['buttons']
 
-		# clearing user_input
+		# clearing previous messages and user input
+		for message in conversation.messages:
+			context.bot.delete_message(message)
+		conversation.messages.clear()
 		context.user_data.pop('user_input', None)
 		context.user_data.pop('validated_input', None)
 
-		self.send_message(update.effective_chat, conversation, text, buttons)
+		update.effective_chat.send_message(
+			text,
+			reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
+			container=conversation.messages
+		)
 
 	@staticmethod
 	def _find_menu(next_state, menu):
