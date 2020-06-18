@@ -230,14 +230,17 @@ def manage_users(update, context, menu):
 
 @with_admin_rights
 def change_user_balance(update, context, menu):
-	user_id = int(update.callback_query.data.split('_')[-1])
-	user_data = context.dispatcher.user_data.get(user_id)
+	conversation = context.user_data['conversation']
+	target_user_id = int(conversation.repeat().split('_')[-1])
+	target_user_data = context.dispatcher.user_data.get(target_user_id)
 
 	if amount := context.user_data.pop('validated_input', None):
-		user_data['balance'] = database.change_balance(
-			user_id, int(amount), 'by_admin', ext_id=update.effective_user.id)
+		target_user_data['balance'] = database.change_balance(
+			target_user_id, int(amount),
+			'by_admin', ext_id=update.effective_user.id
+		)
 		update.callback_query.answer(menu['answers']['success'])
-		context.user_data['conversation'].back(level=2)
+		conversation.back(level=2)
 		return admin_main(update, context)
 
 	if user_input := context.user_data.pop('user_input', None):
@@ -247,13 +250,13 @@ def change_user_balance(update, context, menu):
 			pass
 		else:
 			return (
-				menu['msg'].format(**user_data)
+				menu['msg'].format(**target_user_data)
 					+ menu['answers']['confirm'].format(amount),
 				[utility.confirm_button(amount)] + menu['buttons']
 			)
 
 	return (
-		menu['msg'].format(**user_data) + menu['answers']['ask_for_input'],
+		menu['msg'].format(**target_user_data) + menu['answers']['ask_for_input'],
 		menu['buttons']
 	)
 

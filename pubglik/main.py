@@ -52,15 +52,15 @@ def run():
 
 	# run sever
 	logger.info('Starting server...')
-	server_config = {'/':
+	cherrypy.config.update('server.conf')
+	modules_config = {'/':
 		{'request.dispatch': cherrypy.dispatch.MethodDispatcher()}
 	}
-	cherrypy.log.error_log.propagate = False
-	cherrypy.tree.mount(GetGames(), '/api/games', server_config)
+	cherrypy.tree.mount(GetGames(), '/api/games', modules_config)
 	cherrypy.tree.mount(
 		TelegramHook(pubglik_bot, updates_queue),
 		f'/telegram/{config.bot_token}',
-		server_config
+		modules_config
 	)
 	cherrypy.engine.start()
 	logger.info('Server started!')
@@ -79,10 +79,11 @@ def run():
 		while True:
 			sleep(1)
 	except KeyboardInterrupt:
-		logger.info('Stopping server...')
-		cherrypy.engine.exit()
 		logger.info('Stopping bot...')
 		messages_queue.stop()
+		dispatcher.job_queue.stop()
 		dispatcher.stop()
+		logger.info('Stopping server...')
+		cherrypy.engine.exit()
 
 	logger.info('Bye!')

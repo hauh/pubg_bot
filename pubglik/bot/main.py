@@ -97,5 +97,7 @@ def setup(dispatcher):
 
 	job_queue = JobQueue()
 	job_queue.set_dispatcher(dispatcher)
+	dispatcher.job_queue = job_queue
 	job_queue.run_once(games.restore_state, 0)
 	job_queue.run_repeating(games.check_slots_and_games, 300, first=60)
+	job_queue.start()
