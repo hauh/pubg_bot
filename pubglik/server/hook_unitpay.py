@@ -41,10 +41,10 @@ class UnitpayHook:
 
 			# processing payment
 			user_id = int(data['params[account]'])
-			amount = int(data['params[profit]'])
+			amount = round(float(data['params[profit]']))
 			try:
 				new_balance = database.change_balance(
-					user_id, amount, 'unitpay', ext_id=int(data['prarms[unitpayId]']))
+					user_id, amount, 'unitpay', ext_id=int(data['params[unitpayId]']))
 
 			except UniqueViolation:  # to-do: add unique constraint to ext id
 				logger.warning("Ignoring duplicate payment")
