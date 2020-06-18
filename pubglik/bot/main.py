@@ -1,20 +1,18 @@
 """Main, bot starts here"""
 
-import sys
 from logging import getLogger
 
-from telegram.ext import Updater
-from telegram.ext.messagequeue import MessageQueue
-from telegram.utils.request import Request
+from telegram import InlineKeyboardMarkup
+from telegram.ext import JobQueue
 
 from pubglik import config, database
 from . import texts, games
+from .core import MenuHandler, utility
 from .menus import admin, tournaments, cabinet
-from .core import Bot, MenuHandler, utility
 
 ########################
 
-logger = getLogger('main')
+logger = getLogger('bot')
 
 
 def start(update, context, menu):
@@ -53,19 +51,23 @@ def error(update, context):
 	if update.callback_query:
 		update.callback_query.answer(texts.error, show_alert=True)
 		failed_message = update.callback_query.data
-		update.callback_query.data = '_main_'
 	else:
 		failed_message = update.message.text
-		update.message.text = '/start'
+	conversation = context.user_data.get('conversation')
 	logger.error(
 		"User %s broke down bot in menu %s, failed message: %s",
-		update.effective_user.id, str(context.user_data.get('conversation')),
+		update.effective_user.id, str(conversation),
 		failed_message, exc_info=err
 	)
-	context.dispatcher.process_update(update)
+	main_menu_text, buttons = start(update, context, texts.menu)
+	update.effective_chat.send_message(
+		main_menu_text,
+		reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
+		container=conversation.messages if conversation else None
+	)
 
 
-def init_menu():
+def setup(dispatcher):
 	def add_buttons(menu, depth=0):
 		buttons = []
 		for key, next_menu in menu.get('next', {}).items():
@@ -90,44 +92,10 @@ def init_menu():
 	tournaments.add_callbacks()
 	cabinet.add_callbacks()
 
+	dispatcher.add_handler(MenuHandler(texts.menu))
+	dispatcher.add_error_handler(error)
 
-def main():
-	try:
-		database.prepare_DB()
-	except Exception as err:  # pylint: disable=broad-except
-		logger.critical(
-			"Database connection failed with:",
-			exc_info=(type(err), err, None)
-		)
-		sys.exit(-1)
-
-	init_menu()
-
-	updater = Updater(
-		bot=Bot(
-			config.bot_token,
-			admin_chat=config.admin_chat,
-			msg_queue=MessageQueue(
-				all_burst_limit=29,
-				all_time_limit_ms=1017
-			),
-			request=Request(
-				con_pool_size=10,
-				proxy_url=config.proxy if config.proxy else None
-			),
-		),
-		use_context=True
-	)
-
-	updater.dispatcher.add_handler(MenuHandler(texts.menu))
-	updater.dispatcher.add_error_handler(error)
-
-	updater.job_queue.run_once(games.restore_state, 0)
-	updater.job_queue.run_repeating(games.check_slots_and_games, 300, first=60)
-
-	updater.start_webhook(**config.webhook_kwargs)
-	logger.info("Bot started")
-
-	updater.idle()
-
-	logger.info("Bot stopped")
+	job_queue = JobQueue()
+	job_queue.set_dispatcher(dispatcher)
+	job_queue.run_once(games.restore_state, 0)
+	job_queue.run_repeating(games.check_slots_and_games, 300, first=60)

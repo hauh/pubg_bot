@@ -157,6 +157,6 @@ def _alert_players(context, players, expires, text):
 	for player_id in players:
 		context.bot.send_message(player_id, text, container=alerts)
 	context.job_queue.run_once(
-		lambda c: [c.bot.delete_message(msg) for msg in c.job.context],
+		lambda c: [message.delete() for message in c.job.context],
 		expires, context=alerts
 	)

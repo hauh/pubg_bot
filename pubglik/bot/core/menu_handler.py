@@ -90,7 +90,7 @@ class MenuHandler(Handler):
 
 		# clearing previous messages and user input
 		for message in conversation.messages:
-			context.bot.delete_message(message)
+			message.delete()
 		conversation.messages.clear()
 		context.user_data.pop('user_input', None)
 		context.user_data.pop('validated_input', None)

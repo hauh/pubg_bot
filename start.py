@@ -1,7 +1,7 @@
-"""Launch everything"""
+"""PUBGlik.ru, come and play!"""
 
-import pubglik.bot
+import pubglik
 
 
 if __name__ == "__main__":
-	pubglik.bot.main()
+	pubglik.run()

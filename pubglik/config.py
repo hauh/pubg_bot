@@ -13,11 +13,11 @@ bot_token = os.environ['TG_TOKEN']
 webhook_kwargs = {
 	'listen': '0.0.0.0',
 	'port': 8443,
-	'url_path': bot_token,
+	'url_path': f'/telegram/{bot_token}',
 	'key': os.getenv('SSL_KEY'),
 	'cert': os.getenv('SSL_CERT'),
-	'webhook_url': f"{os.getenv('SERVER_ADDRESS')}:8443/{bot_token}",
-	# 'allowed_updates': ['message', 'callback_query']  # bugged in ptb
+	'url': f"{os.getenv('SERVER_ADDRESS')}:8443/telegram/{bot_token}",
+	# 'allowed_updates': ['message', 'callback_query']
 }
 proxy = os.getenv('PROXY')
 database_url = os.environ['DATABASE']

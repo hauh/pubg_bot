@@ -17,6 +17,15 @@ from .debug_mode import TelegramRequestWrapper
 logger = getLogger('bot')
 
 
+def promised(method):
+	def sender(self, *args, **kwargs):
+		if not self._msg_queue:
+			return method(self, *args, **kwargs)
+		promise = Promise(method, (self, *args), kwargs)
+		return self._msg_queue(promise, kwargs.pop('is_group', False))
+	return sender
+
+
 class Bot(PTBot):
 	"""Sends all messages through timed queue, logs requests errors."""
 
@@ -33,24 +42,11 @@ class Bot(PTBot):
 		except RuntimeError:
 			pass
 
-	@staticmethod
-	def check_promise_result(promise):
-		try:
-			if message := promise.result(timeout=1):
-				return message
-		except BadRequest as err:
-			logger.error(
-				"Sending message %s failed:", promise.args,
-				exc_info=(type(err), err, None)
-			)
-		else:
-			logger.warning("Message %s hasn't been delivered yet", promise.args)
-		return None
-
+	@promised
 	def send_message(self, chat_id, text, *, parse_mode=None,
 					reply_markup=None, container=None, is_group=False, **kwargs):
-		"""Putting message promises in MessageQueue (in chunks if it's too big),
-		storing it in optional `container` to delete later.
+		"""Sending message (in chunks if it's too big), and storing it in optional
+		`container` to delete later, after it will be sent through MessageQueue.
 		"""
 
 		while len(text) > MAX_MESSAGE_LENGTH:
@@ -64,30 +60,24 @@ class Bot(PTBot):
 			)
 			text = text[i_max + 1:]
 
-		message_promise = Promise(
-			super().send_message,
-			(chat_id, text), dict(
+		try:
+			message = super().send_message(
+				chat_id, text,
 				parse_mode=parse_mode or self.default_parse_mode,
 				reply_markup=reply_markup, **kwargs
 			)
-		)
+		except BadRequest as err:
+			logger.error(
+				"Sending message %s failed:", (chat_id, text),
+				exc_info=(type(err), err, None)
+			)
+			return None
+
 		if container is not None:
-			container.append(message_promise)
-		self._msg_queue(message_promise, is_group)
+			container.append(message)
+		return message
 
-	def delete_message(self, *args, **kwargs):
-		"""Deleting message (after resolving if it is a Promise)."""
-		if not args:
-			chat_id, message_id = kwargs.pop('chat_id'), kwargs.pop('message_id')
-		elif len(args) == 1:
-			if not isinstance(args[0], Promise):
-				raise TypeError()
-			if not (message := self.check_promise_result(args[0])):
-				return
-			chat_id, message_id = message.chat_id, message.message_id
-		else:
-			chat_id, message_id = args[0], args[1]
-
+	def delete_message(self, chat_id, message_id, **kwargs):
 		try:
 			super().delete_message(chat_id, message_id, **kwargs)
 		except BadRequest as err:
