@@ -25,14 +25,15 @@ debug_server = "http://localhost:7777/"
 debug_chat = os.environ['DEBUG_CHAT']
 
 # payments
-unitpay_url = f"https://unitpay.money/pay/{os.environ['UNITPAY_KEY']}"
 unitpay_secret = os.environ['UNITPAY_SECRET']
-unitpay_api = "https://unitpay.money/api"
+unitpay_key = os.environ['UNITPAY_KEY']
 unitpay_auth_params = {
 	'params[projectId]': os.environ['UNITPAY_PROJECT_ID'],
 	'params[login]': os.environ['UNITPAY_EMAIL'],
 	'params[secretKey]': os.environ['UNITPAY_API_KEY']
 }
+unitpay_url = f"https://unitpay.money/pay/{unitpay_key}"
+unitpay_api = "https://unitpay.money/api"
 
 # logging
 os.makedirs('logs', exist_ok=True)
@@ -50,7 +51,7 @@ logging.basicConfig(
 # management
 if admin_id := os.getenv('ADMIN_ID'):
 	admin_id = [int(i) for i in admin_id.split(',')]
-admin_chat = os.getenv('ADMIN_CHAT')
+admin_chat = os.environ['ADMIN_CHAT']
 battle_chat = os.environ['CHAT_URL']
 
 # tournaments

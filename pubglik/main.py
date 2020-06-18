@@ -13,13 +13,12 @@ from telegram.ext.messagequeue import MessageQueue
 
 from . import config, bot, database
 from .bot.core import Bot
-from .server import GetGames, TelegramHook
+from .server import GetGames, TelegramHook, UnitpayHook
 
 ####################################
 
 logger = getLogger('main')
 
-updates_queue = Queue()
 messages_queue = MessageQueue(
 	all_burst_limit=29,
 	all_time_limit_ms=1017,
@@ -34,7 +33,7 @@ pubglik_bot = Bot(
 		proxy_url=config.proxy if config.proxy else None
 	)
 )
-dispatcher = Dispatcher(pubglik_bot, updates_queue, use_context=True)
+dispatcher = Dispatcher(pubglik_bot, Queue(), use_context=True)
 
 
 def run():
@@ -53,15 +52,14 @@ def run():
 	# run sever
 	logger.info('Starting server...')
 	cherrypy.config.update('server.conf')
-	modules_config = {'/':
+	app_config = {'/':
 		{'request.dispatch': cherrypy.dispatch.MethodDispatcher()}
 	}
-	cherrypy.tree.mount(GetGames(), '/api/games', modules_config)
+	cherrypy.tree.mount(GetGames(), '/api/games', app_config)
 	cherrypy.tree.mount(
-		TelegramHook(pubglik_bot, updates_queue),
-		f'/telegram/{config.bot_token}',
-		modules_config
-	)
+		UnitpayHook(dispatcher), f'/unitpay/{config.unitpay_key}', app_config)
+	cherrypy.tree.mount(
+		TelegramHook(dispatcher), f'/telegram/{config.bot_token}', app_config)
 	cherrypy.engine.start()
 	logger.info('Server started!')
 

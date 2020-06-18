@@ -1,4 +1,4 @@
-"""Recieving updates from Telegram servers"""
+"""Recieving updates from Telegram servers."""
 
 import json
 from logging import getLogger
@@ -11,27 +11,22 @@ from telegram import Update
 
 logger = getLogger('telegram_hook')
 
-config = {'/': {
-	'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
-}}
-
 
 @cherrypy.expose
 class TelegramHook:
-	"""Gets Telegram updates, and puts them into bot's UpdateQueue"""
+	"""Gets Telegram updates, and puts them into bot's UpdateQueue."""
 
-	def __init__(self, telegram_bot, telegram_updates_queue):
-		self.bot = telegram_bot
-		self.updates_queue = telegram_updates_queue
+	def __init__(self, telegram_dispatcher):
+		self.dispatcher = telegram_dispatcher
 
 	def POST(self):
 		data = json.loads(cherrypy.request.body.read())
 		try:
-			update = Update.de_json(data, self.bot)
+			update = Update.de_json(data, self.dispatcher.bot)
 		except ValueError as err:
 			logger.error(
 				"Non-telegram update recieved:\n%s",
 				data, exc_info=(type(err), err, None)
 			)
 		else:
-			self.updates_queue.put(update)
+			self.dispatcher.update_queue.put(update)
