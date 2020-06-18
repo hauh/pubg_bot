@@ -20,14 +20,13 @@ class UnitpayHook:
 	"""Gets notifications from Unitpay and updates user's balance."""
 
 	def __init__(self, telegram_dispatcher):
-		self.dispatcher = telegram_dispatcher
+		self.tg = telegram_dispatcher
 
 	@cherrypy.tools.json_out()
 	@cherrypy.tools.json_in()
 	def GET(self, **data):
 		# checking where it came from
-		unitpay_ips = cherrypy.request.app.config['unitpay']['ip']
-		if cherrypy.request.remote.ip not in unitpay_ips:
+		if cherrypy.request.remote.ip not in cherrypy.config['unitpay_ip']:
 			logger.critical("Someone is pocking our secret hook! (%s)", data)
 			return cherrypy.HTTPError(403)
 
@@ -41,25 +40,27 @@ class UnitpayHook:
 				return {'error': {'message': "Invalid signature"}}
 
 			# processing payment
-			user_id = int(data['account'])
-			amount = int(data['profit'])
+			user_id = int(data['params[account]'])
+			amount = int(data['params[profit]'])
 			try:
 				new_balance = database.change_balance(
-					user_id, amount, 'unitpay', ext_id=int(data['unitpayId']))
+					user_id, amount, 'unitpay', ext_id=int(data['prarms[unitpayId]']))
 
 			except UniqueViolation:  # to-do: add unique constraint to ext id
 				logger.warning("Ignoring duplicate payment")
+				return {'result': {'message': "Duplicate payment"}}
 
 			except Error as err:
 				logger.critical(
 					"User's payment not saved!\n%s", data,
 					exc_info=(type(err), err, None)
 				)
-				self.dispatcher.bot.notify_admins("Database error!!!")
+				self.tg.bot.notify_admins("Database error!!!")
+				return {'result': {'message': "Database error :("}}
 
 			else:
-				self.dispatcher.user_data[user_id]['balance'] = new_balance
-				self.dispatcher.bot.send_message(
+				self.tg.user_data[user_id]['balance'] = new_balance
+				self.tg.bot.send_message(
 					user_id, GOT_MONEY.format(amount, new_balance))
 
 		return {'result': {'message': "OK"}}
