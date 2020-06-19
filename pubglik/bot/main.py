@@ -60,7 +60,7 @@ def error(update, context):
 	)
 	main_menu_text, buttons = start(update, context, texts.menu)
 	if conversation:
-		conversation.reset()
+		conversation.restart()
 	update.effective_chat.send_message(
 		main_menu_text,
 		reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
