@@ -53,14 +53,14 @@ def error(update, context):
 		failed_message = update.callback_query.data
 	else:
 		failed_message = update.message.text
-	if conversation := context.user_data.get('conversation'):
-		conversation.restart()
+	conversation = context.user_data.get('conversation')
 	logger.error(
 		"User %s broke down bot in menu %s, failed message: %s",
-		update.effective_user.id, str(conversation),
-		failed_message, exc_info=err
+		update.effective_user.id, str(conversation), failed_message, exc_info=err
 	)
 	main_menu_text, buttons = start(update, context, texts.menu)
+	if conversation:
+		conversation.reset()
 	update.effective_chat.send_message(
 		main_menu_text,
 		reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
