@@ -53,7 +53,8 @@ def error(update, context):
 		failed_message = update.callback_query.data
 	else:
 		failed_message = update.message.text
-	conversation = context.user_data.get('conversation')
+	if conversation := context.user_data.get('conversation'):
+		conversation.restart()
 	logger.error(
 		"User %s broke down bot in menu %s, failed message: %s",
 		update.effective_user.id, str(conversation),
