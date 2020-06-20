@@ -6,86 +6,12 @@ from telegram import InlineKeyboardButton
 ##############################
 
 
-menu_tree = {
-	'admin': {
-		'manage_tournaments': {
-			'set_room': {},
-			'set_winners': {
-				'generate_table': {}
-			},
-		},
-		'manage_admins': {
-			'add_admin': {},
-			'revoke_admin': {}
-		},
-		'manage_users': {
-			'change_balance': {},
-			'switch_ban': {},
-		},
-		'mailing': {},
-		'bot_settings': {
-			'debug_mode': {}
-		},
-	},
-	'tournaments': {
-		'slot': {
-			'type': {
-				'type;survival_easy': {},
-				'type;survival_medium': {},
-				'type;survival_hard': {},
-				'type;kills': {},
-				'type;mixed': {},
-			},
-			'mode': {
-				'mode;solo': {},
-				'mode;dual': {},
-				'mode;squad': {},
-				'mode;payload': {},
-				'mode;zombie': {},
-			},
-			'view': {
-				'view;1st': {},
-				'view;3rd': {},
-			},
-			'bet': {
-				f'bet;{bet}': {} for bet in config.bets
-			}
-		}
-	},
-	'cabinet': {
-		'set_pubg_username': {},
-		'set_pubg_id': {},
-		'add_funds': {},
-		'withdraw_money': {
-			'provider': {
-				'provider;card': {},
-				'provider;mc': {},
-				'provider;yandex': {},
-				'provider;qiwi': {},
-				'provider;webmoney': {},
-			},
-			'account': {},
-			'amount': {}
-		},
-		'balance_history': {}
-	},
-	'how': {
-		'usage': {},
-		'prize_structure': {},
-		'rules': {}
-	},
-	'contacts': {},
-}
-
 buttons = {
 	menu_key: [InlineKeyboardButton(button_text, callback_data=menu_key)]
 		for menu_key, button_text in
 {  # noqa
-	'_main_': "В главное меню",
-	'_back_': "Назад",
-	'_confirm_': "Подтвердить",
-
 	# ########### main ########## #
+	'_main_': "В главное меню",
 	'how': "Как это работает?",
 	'usage': "Как пользоваться сервисом",
 	'prize_structure': "Структура призов",
@@ -140,168 +66,47 @@ buttons = {
 	'balance_history': "Посмотреть историю операций",
 }.items()}
 
-button_templates = {
-	'admin': "Управление",
-	'switch_ban': {
-		'ban': "Забанить",
-		'unban': "Разбанить",
+optional_buttons = {
+	'_back_': [InlineKeyboardButton("Назад", callback_data='_back_')],
+	'_confirm_': lambda value: [InlineKeyboardButton(
+		"Подтвердить", callback_data=f'_confirm_;{value}')],
+	'_main_': {
+		'admin': [InlineKeyboardButton("Управление", callback_data='admin')],
+		'chat': [InlineKeyboardButton("Боевой чат", url=config.battle_chat)]
 	},
-	'set_room': "{status} PUBG ID {room_id}: {game}",
-	'set_winners': "{status} PUBG ID {room_id}: {game}",
-	'debug_mode': {
-		'debug_on': "⚠️ Включить дебаг ⚠️",
-		'debug_off': "Выключить дебаг"
+	'manage_users': {
+		'ban': [InlineKeyboardButton("Забанить", callback_data='switch_ban')],
+		'unban': [InlineKeyboardButton("Разбанить", callback_data='switch_ban')],
 	},
-	'slot': {
-		'leave': "{slot_time} - Выйти",
-		'create': "{slot_time} - Создать турнир",
-		'join': "{slot}"
+	'manage_tournaments': {
+		'set_room': lambda frmt, game_id: [InlineKeyboardButton(
+			"🕑 PUBG ID {room_id}: {game}".format(**frmt), f'set_room;{game_id}')],
+		'set_winners': lambda frmt, game_id: [InlineKeyboardButton(
+			"🏆 PUBG ID {room_id}: {game}".format(**frmt), f'set_winners;{game_id}')],
 	},
-}
-
-answers = {
-	# ########## admin ########## #
-	'set_room': {
-		'success': {
-			'text': "ID комнаты и пароль сохранены.",
-			'show_alert': False,
-		}
+	'bot_settings': {
+		'debug_on': [InlineKeyboardButton(
+			"⚠️ Включить дебаг ⚠️", callback_data='switch_debug')],
+		'debug_off': [InlineKeyboardButton(
+			"Выключить дебаг", callback_data='switch_debug')],
 	},
-	'set_winners': {
-		'success': {
-			'text': "Начато распределение призов",
-			'show_alert': False
-		}
-	},
-	'add_admin': {
-		'success': {
-			'text': "Администратор добавлен!",
-			'show_alert': False
-		}
-	},
-	'revoke_admin': {
-		'success': {
-			'text': "Администратор удалён!",
-			'show_alert': False,
-		}
-	},
-	'change_balance': {
-		'success': {
-			'text': "Баланс изменён",
-			'show_alert': False
-		},
-	},
-	'switch_ban': {
-		'banned': {
-			'text': "Забанен!",
-			'show_alert': False
-		},
-		'unbanned': {
-			'text': "Разбанен!",
-			'show_alert': False
-		}
-	},
-	'mailing': {
-		'success': {
-			'text': "Начата рассылка сообщений",
-			'show_alert': True,
-		}
-	},
-	'debug_mode': {
-		'debug_off': {
-			'text': "Режим дебага теперь выключен",
-			'show_alert': False
-		},
-		'debug_on': {
-			'text': "Режим дебага теперь ВКЛЮЧЕН!",
-			'show_alert': True
-		},
-	},
-
-	# ########## tournaments ########## #
 	'tournaments': {
-		'pubg_required': {
-			'text': (
-				"Привет, Игрок! "
-				"Для начала пройди регистрацию - вкладка «Личный Кабинет»",
-			),
-			'show_alert': True
-		}
+		'leave_slot': lambda frmt, slot_id: [InlineKeyboardButton(
+			"{slot_time} - Выйти".format(**frmt), f'slot;{slot_id}')],
+		'create_slot': lambda frmt, slot_id: [InlineKeyboardButton(
+			"{slot_time} - Создать турнир".format(**frmt), f'slot;{slot_id}')],
+		'join_slot': lambda frmt, slot_id: [InlineKeyboardButton(
+			"{slot}".format(**frmt), f'slot;{slot_id}')]
 	},
-	'slot': {
-		'not_found': {
-			'text': "Турнир не найден. Вероятно, он уже начался или завершился.",
-			'show_alert': False,
-		},
-		'maximum': {
-			'text': "Вы уже записаны на три турнира",
-			'show_alert': True,
-		},
-		'expensive': {
-			'text': "У вас не хватает средств для участия в этом турнире",
-			'show_alert': True,
-		},
-		'full': {
-			'text': "Турнир заполнен",
-			'show_alert': True,
-		},
-		'already_set': {
-			'text': "Турнир уже был кем-то создан",
-			'show_alert': True,
-		},
-		'too_late': {
-			'text': "Нельзя выйти: турнир уже готовится к началу",
-			'show_alert': True,
-		},
-		'left': {
-			'text': "Вы вышли из турнира. Ставка возвращена на ваш счёт.",
-			'show_alert': True,
-		},
-		'joined': {
-			'text': (
-				f"Турнир выбран. За {config.times['send_room']} мин. "
-				"до начала придёт пароль от комнаты."
-			),
-			'show_alert': True
-		},
-	},
-
-	# ########## cabinet ########## #
-	'set_pubg_username': {
-		'success': {
-			'text': "Новый ник PUBG установлен",
-			'show_alert': False
-		},
-		'duplicate': {
-			'text': "Такой ник уже зарегистрирован",
-			'show_alert': True
-		},
-	},
-	'set_pubg_id': {
-		'success': {
-			'text': "Новый PUBG ID установлен",
-			'show_alert': False
-		},
-		'duplicate': {
-			'text': "Такой PUBG ID уже зарегистрирован",
-			'show_alert': True
-		},
-	},
-	'withdraw_money': {
-		'too_much': {
-			'text': "На вашем счету недостаточно средств",
-			'show_alert': True
-		},
-		'error': {
-			'text': "Произошла ошибка, попробуйте позже или обратитесь в поддержку",
-			'show_alert': True
-		},
+	'add_funds': {
+		'go_pay': lambda frmt, url: [InlineKeyboardButton(
+			"Перейти в платёжную систему, сумма: {amount}".format(**frmt), url=url)]
 	}
 }
 
 texts = {
 	# ########## main ########## #
-	'main': {
+	'_main_': {
 		'registered': (
 			"Приветствуем тебя, *{}*, в нашей команде!\n"
 			"Текущий баланс: {}\nСыграно турниров: {}."
@@ -503,7 +308,6 @@ texts = {
 		),
 		'confirm': "Сумма *пополнения*: {}. Создать ссылку для оплаты?",
 		'invalid': "Введите число в диапазоне 10 - 99999",
-		# 'goto_payment': "Перейти в платёжную систему, сумма: {}"
 	},
 	'withdraw_money': {
 		'balance': "Вывод средств с вашего счёта. Ваш баланc: *{}*.",
@@ -527,6 +331,146 @@ texts = {
 		'template': "{arrow} \\[{id}: {date}] *{amount}*",
 		'not_found': "Операций не найдено.",
 	},
+}
+
+answers = {
+	# ########## admin ########## #
+	'set_room': {
+		'success': {
+			'text': "ID комнаты и пароль сохранены.",
+			'show_alert': False,
+		}
+	},
+	'set_winners': {
+		'success': {
+			'text': "Начато распределение призов",
+			'show_alert': False
+		}
+	},
+	'add_admin': {
+		'success': {
+			'text': "Администратор добавлен!",
+			'show_alert': False
+		}
+	},
+	'revoke_admin': {
+		'success': {
+			'text': "Администратор удалён!",
+			'show_alert': False,
+		}
+	},
+	'change_balance': {
+		'success': {
+			'text': "Баланс изменён",
+			'show_alert': False
+		},
+	},
+	'switch_ban': {
+		'banned': {
+			'text': "Забанен!",
+			'show_alert': False
+		},
+		'unbanned': {
+			'text': "Разбанен!",
+			'show_alert': False
+		}
+	},
+	'mailing': {
+		'success': {
+			'text': "Начата рассылка сообщений",
+			'show_alert': True,
+		}
+	},
+	'debug_mode': {
+		'debug_off': {
+			'text': "Режим дебага теперь выключен",
+			'show_alert': False
+		},
+		'debug_on': {
+			'text': "Режим дебага теперь ВКЛЮЧЕН!",
+			'show_alert': True
+		},
+	},
+
+	# ########## tournaments ########## #
+	'tournaments': {
+		'pubg_required': {
+			'text': (
+				"Привет, Игрок! "
+				"Для начала пройди регистрацию - вкладка «Личный Кабинет»",
+			),
+			'show_alert': True
+		}
+	},
+	'slot': {
+		'not_found': {
+			'text': "Турнир не найден. Вероятно, он уже начался или завершился.",
+			'show_alert': False,
+		},
+		'maximum': {
+			'text': "Вы уже записаны на три турнира",
+			'show_alert': True,
+		},
+		'expensive': {
+			'text': "У вас не хватает средств для участия в этом турнире",
+			'show_alert': True,
+		},
+		'full': {
+			'text': "Турнир заполнен",
+			'show_alert': True,
+		},
+		'already_set': {
+			'text': "Турнир уже был кем-то создан",
+			'show_alert': True,
+		},
+		'too_late': {
+			'text': "Нельзя выйти: турнир уже готовится к началу",
+			'show_alert': True,
+		},
+		'left': {
+			'text': "Вы вышли из турнира. Ставка возвращена на ваш счёт.",
+			'show_alert': True,
+		},
+		'joined': {
+			'text': (
+				f"Турнир выбран. За {config.times['send_room']} мин. "
+				"до начала придёт пароль от комнаты."
+			),
+			'show_alert': True
+		},
+	},
+
+	# ########## cabinet ########## #
+	'set_pubg_username': {
+		'success': {
+			'text': "Новый ник PUBG установлен",
+			'show_alert': False
+		},
+		'duplicate': {
+			'text': "Такой ник уже зарегистрирован",
+			'show_alert': True
+		},
+	},
+	'set_pubg_id': {
+		'success': {
+			'text': "Новый PUBG ID установлен",
+			'show_alert': False
+		},
+		'duplicate': {
+			'text': "Такой PUBG ID уже зарегистрирован",
+			'show_alert': True
+		},
+	},
+	'withdraw_money': {
+		'too_much': {
+			'text': "На вашем счету недостаточно средств",
+			'show_alert': True
+		},
+		'error': {
+			'text': "Произошла ошибка, попробуйте позже или обратитесь в поддержку",
+			'show_alert': True
+		},
+	}
 }
 
 # notifications
