@@ -5,10 +5,12 @@ from pubglik.config import (
 	max_players as MAX_PLAYERS,
 	enough_players as ENOUGH_PLAYERS
 )
-from pubglik.bot.texts import match_settings as SETTINGS
 from . import games
+from ..texts import settings_names as NAMES
 
 ##############################
+
+SETTINGS = ['type', 'mode', 'view', 'bet']
 
 
 class Slot:
@@ -31,14 +33,15 @@ class Slot:
 
 	def __str__(self):
 		return (
-			f"🕑{self.time.strftime('%H:%M')}"
-			+ ("👥{players}🎮{type}, {mode}👁{view}💲{bet}".format(
+			"🕑{time}👥{players}🎮{type}, {mode}👁{view}💲{bet}".format(
+				time=self.time.strftime('%H:%M'),
 				players=len(self.players),
-				**{
-					setting: text[str(self.settings[setting])]['short']
-					for setting, text in SETTINGS.items()
-				}
-			) if self.is_set else "")
+				type=NAMES['_short_'].get(self.settings['type'])
+					or NAMES['type'].get(self.settings['type'], "---"),
+				mode=NAMES['mode'].get(self.settings['mode'], "---"),
+				view=self.settings['view'] or "---",
+				bet=self.settings['bet'] or "---"
+			)
 		)
 
 	@property

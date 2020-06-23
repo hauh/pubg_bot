@@ -18,11 +18,17 @@ class Conversation:
 		self.data = None
 		self.confirmed = False
 
-	def back(self):
+	def back(self, context, *, depth=1):
 		self.data = None
-		self.state = self.state.back or self.state
+		for _ in range(depth):
+			self.state = self.state.back or self.state
+		if not self.state.callback:
+			return self.reply(self.state.texts)
+		return self.state.callback(self, context)
 
 	def next(self, next_state, update_data):
+		self.response = {}
+		self.data = update_data
 		if next_state == '_back_':
 			self.state = self.state.back or self.state
 		elif next_state == '_main_':
@@ -30,23 +36,31 @@ class Conversation:
 				self.state = self.state.back
 		elif next_state == '_confirm_':
 			self.confirmed = True
-		elif next_state:
+		elif next_state in self.state.next:
 			self.state = self.state.next[next_state]
-		self.response['buttons'] = list(self.state.buttons)
-		self.data = update_data
 		return self.state
 
-	def reply(self, text=None, buttons=None, answer=None):
-		if text:
-			self.response['text'] = text
-		if buttons:
-			self.response['buttons'].append(buttons)
-		if answer:
-			self.response['answer'] = answer
+	def add_button(self, button):
+		self.response.setdefault('buttons', []).append(button)
+
+	def set_answer(self, answer):
+		self.response['answer'] = answer
+
+	def reply(self, text):
+		self.response['text'] = text
+		buttons = [
+			next_state.button for next_state in self.state.next.values()
+				if next_state.button
+		] + self.response.get('buttons', [])
+		if self.state.back:
+			if self.state.back.back:
+				buttons.append(self.state.back_button + self.state.main_button)
+			else:
+				buttons.append(self.state.back_button)
+		self.response['buttons'] = buttons
 		return self.response
 
 	def clear(self):
-		self.response = {}
 		for message in self.messages:
 			message.delete()
 		self.messages.clear()
@@ -87,13 +101,15 @@ class PrivateConversationHandler(Handler):
 			update.effective_user.id,
 			Conversation(self.tree, int(update.effective_user.id))
 		)
+		if conversation.user_id in context.bot_data.get('banlist', {}):
+			return
 		next_state = conversation.next(*parsed_update)
 
 		# preparing response
 		if next_state.callback:
 			response = next_state.callback(conversation, context)
 			text = response['text']
-			buttons = response.get('buttons')
+			buttons = response.get('buttons', [])
 			if answer := response.get('answer'):
 				update.callback_query.answer(**answer)
 		else:

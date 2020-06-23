@@ -1,67 +1,64 @@
 """Menu where user creates and picks game slots"""
 
-from pubglik.bot import texts
-from pubglik.bot.core import utility
-
-##############################
-
-tournaments_menu = texts.menu['next']['tournaments']
-MATCH_SETTINGS = texts.match_settings
+GAME_SETTINGS = ['type', 'mode', 'view', 'bet']
 
 
-def tournaments_main(update, context, menu=tournaments_menu):
+def main(conversation, context):
+	# pubg_id and pubg_username required
 	if (not context.user_data.get('pubg_id')
 	or not context.user_data.get('pubg_username')):
-		update.callback_query.answer(menu['answers']['pubg_required'])
-		context.user_data['conversation'].back()
-		return (texts.menu['msg'], texts.menu['buttons'])
+		conversation.set_answer(conversation.state.answers['pubg_required'])
+		return conversation.back(context)
 
+	conversation.context = None
 	picked_slots = context.user_data.setdefault('picked_slots', set())
-	slots_buttons = []
+
+	# button to leave already joined slots
 	for slot in picked_slots:
 		if not slot.is_ready:
-			slots_buttons.append(utility.button(
-				f'slot_{slot.slot_id}',
-				f"{slot.time.strftime('%H:%M')} - {texts.leave_slot}"
-			))
+			conversation.add_button(conversation.state.extra['leave_slot'](
+				dict(slot_time=slot.time.strftime('%H:%M')), slot.slot_id))
+
+	# buttons to create or join opened slots
 	if len(picked_slots) < 3:
 		for slot in context.bot_data.get('slots', []):
 			if slot not in picked_slots and not slot.is_full:
 				if not slot.is_set:
-					btn_text = f"{slot.time.strftime('%H:%M')} - {texts.free_slot}"
+					conversation.add_button(conversation.state.extra['create_slot'](
+						dict(slot_time=slot.time.strftime('%H:%M')), slot.slot_id))
 				else:
-					btn_text = str(slot)
-				slots_buttons.append(utility.button(f'slot_{slot.slot_id}', btn_text))
-	return (
-		menu['msg'].format(
-			balance=context.user_data['balance'],
-			tournaments='\n'.join(str(slot) for slot in picked_slots)
-				if picked_slots else menu['default']
-		),
-		slots_buttons + menu['buttons']
+					conversation.add_button(conversation.state.extra['join_slot'](
+						dict(slot=str(slot)), slot.slot_id))
+	return conversation.reply(
+		conversation.state.texts['rules'].format(context.user_data['balance'])
+		+ "" if not picked_slots else conversation.state.texts['picked'].format(
+			'\n'.join(str(slot) for slot in picked_slots))
 	)
 
 
-def pick_slot(update, context, menu):
+def pick_slot(conversation, context):
 	def done(answer):
-		update.callback_query.answer(menu['answers'][answer], show_alert=True)
-		context.user_data['conversation'].back()
-		return tournaments_main(update, context)
+		conversation.set_answer(conversation.state.answers[answer])
+		conversation.context = None
+		return conversation.back(context)
 
 	def find_slot():
-		slot_button = context.user_data['conversation'].repeat()
-		picked_slot_id = int(slot_button.split('_')[-1])
+		picked_slot_id = conversation.context['slot_id']
 		for slot in context.bot_data['slots']:
 			if slot.slot_id == picked_slot_id:
 				return slot
 		return None
 
+	if not conversation.context:
+		conversation.context = {'slot_id': int(conversation.data)}
+
 	if not (slot := find_slot()):
 		return done('not_found')
 
 	# setup slot if confirmed
-	if context.user_data.pop('validated_input', None):
-		settings = context.user_data.pop('slot_settings', None)
+	if conversation.confirmed:
+		settings = conversation.context.pop('settings')
+		conversation.confirmed = False
 		if slot.is_set:
 			return done('already_set')
 		if settings and all(settings.values()):
@@ -73,7 +70,7 @@ def pick_slot(update, context, menu):
 			return done('too_late')
 		context.user_data['picked_slots'].remove(slot)
 		bet = slot.bet
-		slot.leave(update.effective_user.id)
+		slot.leave(conversation.user_id)
 		context.user_data['balance'] += bet
 		return done('left')
 
@@ -81,53 +78,38 @@ def pick_slot(update, context, menu):
 	if len(context.user_data['picked_slots']) >= 3:
 		return done('maximum')
 
-	# setup first
-	if not slot.is_set:
-		return setup_slot(update, context)
+	# try to join if slot is set
+	if slot.is_set:
 
-	# slot is full
-	if slot.is_full:
-		return done('full')
+		if slot.is_full:
+			return done('full')
 
-	# not enough money
-	if context.user_data['balance'] < slot.bet:
-		return done('expensive')
+		if context.user_data['balance'] < slot.bet:
+			return done('expensive')
 
-	# finally you can join
-	context.user_data['balance'] -= slot.bet
-	slot.join(update.effective_user.id)
-	context.user_data['picked_slots'].add(slot)
-	return done('joined')
+		context.user_data['balance'] -= slot.bet
+		slot.join(conversation.user_id)
+		context.user_data['picked_slots'].add(slot)
+		return done('joined')
 
-
-def setup_slot(update, context, menu=tournaments_menu['next']['slot_']):
-	settings = context.user_data.setdefault(
-		'slot_settings', dict.fromkeys(['type', 'mode', 'view', 'bet'], None))
-	answer = menu['msg'].format(
-		balance=context.user_data['balance'],
-		**{
-			setting: MATCH_SETTINGS[setting][chosen_value]['full']
-				if chosen_value else menu['default']
-				for setting, chosen_value in settings.items()
-		}
-	)
-	if not all(settings.values()):
-		return (answer, menu['buttons'])
-	return (answer, [utility.confirm_button('slot_setup')] + menu['buttons'])
+	# else setup first
+	text = conversation.state.texts['create'].format(context.user_data['balance'])
+	if not (settings := conversation.context.get('settings')):
+		conversation.context['settings'] = dict.fromkeys(GAME_SETTINGS, None)
+	else:
+		for setting in GAME_SETTINGS:
+			if setting_value := settings.get(setting):
+				text += conversation.state.texts[setting].format(
+					conversation.state.next[setting]
+					.next[f'{setting};{setting_value}'].button[0].text
+				)
+		if all(settings.values()):
+			conversation.add_button(conversation.state.confirm_button('settings'))
+	return conversation.reply(text)
 
 
-def get_slot_setting(update, context, menu):
-	conv = context.user_data['conversation']
-	context.user_data['slot_settings'][conv.back()] = update.callback_query.data
-	conv.back()
-	return setup_slot(update, context)
-
-
-##############################
-
-def add_callbacks():
-	tournaments_menu['callback'] = tournaments_main
-	tournaments_menu['next']['slot_']['callback'] = pick_slot
-	for setting_menu in tournaments_menu['next']['slot_']['next'].values():
-		for setting_choice in setting_menu['next'].values():
-			setting_choice['callback'] = get_slot_setting
+def get_slot_setting(conversation, context):
+	if not conversation.data:
+		return conversation.reply(conversation.state.texts)
+	conversation.context['settings'][conversation.state.key] = conversation.data
+	return conversation.back(context)
