@@ -14,12 +14,10 @@ class Conversation:
 		self.state = starting_state
 		self.messages = []
 		self.response = {}
-		self.context = None
-		self.data = None
+		self.input = None
 		self.confirmed = False
 
 	def back(self, context, *, depth=1):
-		self.data = None
 		for _ in range(depth):
 			self.state = self.state.back or self.state
 		if not self.state.callback:
@@ -28,7 +26,7 @@ class Conversation:
 
 	def next(self, next_state, update_data):
 		self.response = {}
-		self.data = update_data
+		self.input = update_data
 		if next_state == '_back_':
 			self.state = self.state.back or self.state
 		elif next_state == '_main_':
@@ -61,6 +59,7 @@ class Conversation:
 		return self.response
 
 	def clear(self):
+		self.confirmed = False
 		for message in self.messages:
 			message.delete()
 		self.messages.clear()
