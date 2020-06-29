@@ -32,7 +32,7 @@ def restore_state(context):
 			player_data = context.dispatcher.user_data.setdefault(player_id, player)
 			if 'balance' not in player_data:
 				player_data['balance'] = database.get_balance(player_id)
-			player_data.setdefault('picked_slots', set()).add(slot)
+			player_data.setdefault('joined_slots', set()).add(slot)
 		active_slots.append(slot)
 	context.dispatcher.bot_data['slots'] = active_slots
 	if active_slots:
@@ -95,7 +95,7 @@ def check_slots_and_games(context):
 			player_data = context.dispatcher.user_data.get(user_id)
 			player_data['balance'] += prize
 			player_data['games_played'] += 1
-			player_data['picked_slots'].discard(game)
+			player_data['joined_slots'].discard(game)
 			total_payouts += prize
 			context.bot.send_message(
 				user_id,
@@ -145,7 +145,7 @@ def _delete_slot(context, slot):
 	for user_id in slot.players:
 		player_data = context.dispatcher.user_data.get(user_id)
 		player_data['balance'] += slot.bet
-		player_data['picked_slots'].discard(slot)
+		player_data['joined_slots'].discard(slot)
 	_alert_players(
 		context, slot.players, DELETE_SLOT_MESSAGE_TIME,
 		texts.game_didnt_happen.format(str(slot))

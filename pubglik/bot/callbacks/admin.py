@@ -1,6 +1,7 @@
 """Admin menu"""
 
 import re
+from functools import partial
 
 from telegram import ChatAction, Document
 
@@ -11,45 +12,46 @@ from pubglik.bot.misc import excel
 
 
 def with_admin_rights(admin_func):
-	def check_rights(conversation, context):
+	def check_rights(state, conversation, context):
 		if not context.user_data.get('admin'):
 			raise PermissionError(
 				f"User id: {conversation.user_id}, "
 				f"Telegram username: {context.user_data.get('username')}"
 			)
-		return admin_func(conversation, context)
+		return admin_func(state, conversation, context)
 	return check_rights
 
 
 @with_admin_rights
-def main(conversation, context):
-	return conversation.reply(conversation.state.texts)
+def main(state, conversation, context):
+	return conversation.reply()
 
 
 @with_admin_rights
-def add_admin(conversation, context):
+def add_admin(state, conversation, context):
 	if not conversation.input:
-		return conversation.reply(conversation.state.texts['input'])
+		return conversation.reply(state.texts['input'])
 
 	if not conversation.confirmed:
 
 		if not (user := database.find_user(username=conversation.input)):
-			return conversation.reply(conversation.state.texts['not_found'])
+			return conversation.reply(state.texts['not_found'])
 
-		conversation.add_button(conversation.state.confirm_button(user['id']))
 		return conversation.reply(
-			conversation.state.texts['found'].format(user['username']))
+			text=state.texts['found'].format(user['username']),
+			confirm=user['id']
+		)
 
 	return switch_admin(conversation, context, True)
 
 
 @with_admin_rights
-def revoke_admin(conversation, context):
+def revoke_admin(state, conversation, context):
 	if not conversation.confirmed:
-		for admin in database.find_user(admin=True, fetch_all=True):
-			conversation.add_button(
-				conversation.state.extra['revoke'](admin['id'], admin['username']))
-		return conversation.reply(conversation.state.texts)
+		return conversation.reply(
+			extra_buttons=[state.extra['revoke'](admin['id'], admin['username'])
+				for admin in database.find_user(admin=True, fetch_all=True)]
+		)
 
 	return switch_admin(conversation, context, False)
 
@@ -58,22 +60,22 @@ def switch_admin(conversation, context, new_state):
 	admin_id = int(conversation.input)
 	database.update_user(admin_id, admin=new_state)
 	context.dispatcher.user_data[admin_id]['admin'] = new_state
-	conversation.set_answer(conversation.state.answers['success'])
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
-def manage_tournaments(conversation, context):
+def manage_tournaments(state, conversation, context):
+	game_buttons = []
 	for game in context.bot_data.get('games', []):
 		if not game.is_running:
-			conversation.add_button(conversation.state.extra['set_room'](game))
+			game_buttons.append(state.extra['set_room'](game))
 		elif not game.is_finished:
-			conversation.add_button(conversation.state.extra['set_winners'](game))
-	return conversation.reply(conversation.state.texts)
+			game_buttons.append(state.extra['set_winners'](game))
+	return conversation.reply(extra_buttons=game_buttons)
 
 
 def with_game_to_manage(manage_game_func):
-	def find_game(conversation, context):
+	def find_game(state, conversation, context):
 		game_id = context.user_data.setdefault(
 			'game_to_manage', int(conversation.data))
 		for game in context.bot_data.get('games', []):
@@ -81,54 +83,54 @@ def with_game_to_manage(manage_game_func):
 				return manage_game_func(conversation, context, game)
 		# noqa todo: warning if not found
 		del context.user_data['game_to_manage']
-		return manage_tournaments(conversation, context)
+		return manage_tournaments(state, conversation, context)
 	return find_game
 
 
 @with_admin_rights
 @with_game_to_manage
-def set_room(conversation, context, game):
+def set_room(state, conversation, context, game):
 	if not conversation.input:
-		return conversation.reply(conversation.texts['input'].format(
-			str(game), game.room_id, game.room_pass))
+		return conversation.reply(
+			conversation.texts['input'].format(str(game), game.room_id, game.room_pass))
 
 	# input should be in 'pubg_id,pass' format
 	try:
 		pubg_id, room_pass = conversation.input.split(',')
 		pubg_id = int(pubg_id)
 	except ValueError:
-		return conversation.reply(conversation.state.texts['invalid'])
+		return conversation.reply(state.texts['invalid'])
 
 	if not conversation.confirmed:
 		room_pass = room_pass.strip()
-		conversation.add_button(
-			conversation.state.confirm_button(f'{pubg_id},{room_pass}'))
 		return conversation.reply(
-			conversation.state.texts['confirm'].format(pubg_id, room_pass))
+			text=state.texts['confirm'].format(pubg_id, room_pass),
+			confirm=f'{pubg_id},{room_pass}'
+		)
 
 	game.run_game(pubg_id, room_pass)
-	conversation.set_answer(conversation.state.answers['success'])
 	del context.user_data['game_to_manage']
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
 @with_game_to_manage
-def set_winners(conversation, context, game):
+def set_winners(state, conversation, context, game):
 	if not conversation.confirmed:
-		context.bot.send_chat_action(conversation.user_id, ChatAction.TYPING)
-		conversation.add_button(
-			conversation.state.extra['generate_table'](game.slot_id))
+		conversation.update.effective_chat.send_action(ChatAction.TYPING)
+		reply_with_excel_button = partial(conversation.reply,
+			extra_buttons=(state.extra['generate_table'](game.slot_id),))
 		game.reset_results()
 
 		# first asking for filled table
-		if not isinstance(conversation.input, Document):
-			return conversation.reply(
-				conversation.state.texts['input'].format(str(game), game.room_id))
+		attachement = conversation.update.effective_message.effective_attachement
+		if not attachement or not isinstance(attachement, Document):
+			return reply_with_excel_button(
+				state.texts['input'].format(str(game), game.room_id))
 
 		# then trying to read xlsx file
-		if not (results := excel.read_table(conversation.input.get_file())):
-			return conversation.reply(conversation.state.texts['bad_file'])
+		if not (results := excel.read_table(attachement.get_file())):
+			return conversation.reply(state.texts['bad_file'])
 
 		# reading file for places and kills
 		try:
@@ -139,31 +141,29 @@ def set_winners(conversation, context, game):
 				for row, user_id, kills in excel.get_killers(results):
 					game.game.set_player_kills(user_id, kills)
 		except ValueError as err:
-			return conversation.reply(
-				conversation.state.texts[err.args[0]]. format(row))
+			return reply_with_excel_button(state.texts[err.args[0]]. format(row))
 
 		if not game.winners_are_set:
-			return conversation.reply(conversation.texts['missing_something'])
+			return reply_with_excel_button(conversation.texts['missing_something'])
 
 		# if table filled correctly, preparing distribution and asking to confirm
 		total_payouts = game.distribute_prizes()
-		conversation.add_button(conversation.state.confirm_button(game.slot_id))
-		return conversation.reply(conversation.state.texts['confirm'].format(
-			game.prize_fund, total_payouts))
+		return reply_with_excel_button(
+			text=state.texts['confirm'].format(game.prize_fund, total_payouts),
+			confirm=game.slot_id
+		)
 
 	# if winners are set and confirmed mark game as finished for job worker
 	game.is_finished = True
-	conversation.set_answer(conversation.answers['success'])
 	del context.user_data['game_to_manage']
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
 @with_game_to_manage
-def generate_table(conversation, context, game):
-	context.bot.send_chat_action(conversation.user_id, ChatAction.TYPING)
-	context.bot.send_document(
-		conversation.user_id,
+def generate_table(state, conversation, context, game):
+	conversation.update.effective_chat.send_action(ChatAction.TYPING)
+	conversation.update.effective_chat.send_document(
 		excel.create_table(database.get_players(game.slot_id)),
 		filename=f'{game.pubg_id}.xlsx'
 	)
@@ -171,7 +171,7 @@ def generate_table(conversation, context, game):
 
 
 @with_admin_rights
-def manage_users(conversation, context):
+def manage_users(state, conversation, context):
 	if conversation.input:
 		try:
 			user_id = int(conversation.input)
@@ -185,80 +185,77 @@ def manage_users(conversation, context):
 				user = database.find_user(id=user_id)
 		if not user:
 			context.user_data.pop('user_to_manage', None)
-			return conversation.reply(conversation.state.texts['not_found'])
+			return conversation.reply(state.texts['not_found'])
 
 		context.user_data['user_to_manage'] = user
 
 	elif not (user := context.user_data.get('user_to_manage')):
-		return conversation.reply(conversation.state.texts['input'])
+		return conversation.reply(state.texts['input'])
 
 	user_id = user['id']
 	user['balance'] = database.get_balance(user_id)
 	context.dispatcher.user_data.setdefault(user_id, {}).update(user)
-	conversation.add_button(conversation.state.extra['change_balance'])
-	conversation.add_button(
-		conversation.state.extra['ban_user'] if not user['banned']
-		else conversation.state.extra['unban_user']
+	return conversation.reply(
+		text=state.texts['found'].format(**user),
+		extra_buttons=(
+			state.extra['change_balance'],
+			state.extra['ban_user' if not user['banned'] else 'unban_user']
+		)
 	)
-	return conversation.reply(conversation.state.texts['found'].format(**user))
 
 
 @with_admin_rights
-def change_balance(conversation, context):
+def change_balance(state, conversation, context):
 	user = context.user_data['user_to_manage']
 
 	if not conversation.confirmed:
 		if not conversation.input:
-			return conversation.reply(conversation.state.texts['input'].format(**user))
+			return conversation.reply(state.texts['input'].format(**user))
 
 		if not re.match(r'^-?[1-9][0-9]{0,5}$', conversation.input):
-			return conversation.reply(conversation.state.texts['invalid'])
+			return conversation.reply(state.texts['invalid'])
 
-		conversation.add_button(
-			conversation.state.confirm_button(conversation.input))
 		return conversation.reply(
-			conversation.state.texts['confirm'].format(conversation.input))
+			text=state.texts['confirm'].format(conversation.input),
+			confirm=conversation.input
+		)
 
 	amount = int(conversation.input)
 	conversation.input = None
 	user['balance'] = database.change_balance(
 		user['id'], amount, 'by_admin', ext_id=conversation.user_id)
-	conversation.set_answer(conversation.state.answers['success'])
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
-def unban_user(conversation, context):
+def unban_user(state, conversation, context):
 	user = context.user_data['user_to_manage']
 	database.update_user(user['id'], banned=False)
 	user['banned'] = False
-	conversation.set_answer(conversation.state.answers['success'])
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
-def ban_user(conversation, context):
+def ban_user(state, conversation, context):
 	if not conversation.confirmed:
-		conversation.add_button(conversation.state.confirm_button('ban'))
-		return conversation.reply(conversation.state.texts)
+		return conversation.reply(confirm='ban')
 
 	user = context.user_data['user_to_manage']
 	banned_user_id = user['id']
 	database.update_user(banned_user_id, banned=True)
 	user['banned'] = True
-	# ugly
-	if (user_conversation := context.dispatcher.handlers[0][0]
-	.user_conversations.pop(banned_user_id, None)):
-		user_conversation.clear()
-	for slot in user.pop('picked_slots', []):
+	if user_conversation := user.get('conversation'):
+		user_conversation.banned = True
+		for message in user_conversation.messages:
+			message.delete()
+	for slot in user.pop('joined_slots', []):
 		slot.leave(banned_user_id)
 
-	conversation.set_answer(conversation.state.answers['success'])
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
-def mailing(conversation, context):
+def mailing(state, conversation, context):
 	spam_message = context.user_data.get('message_to_spam')
 
 	if not conversation.confirmed:
@@ -267,32 +264,24 @@ def mailing(conversation, context):
 			spam_message = conversation.input
 
 		elif not spam_message:
-			return conversation.reply(conversation.state.texts['input'])
+			return conversation.reply(state.texts['input'])
 
-		conversation.add_button(conversation.state.confirm_button('spam'))
 		return conversation.reply(
-			conversation.state.texts['confirm'].format(spam_message))
+			text=state.texts['confirm'].format(spam_message), confirm='spam')
 
 	for user in database.find_user(admin=False, banned=False, fetch_all=True):
 		context.bot.send_message(user['id'], spam_message)
-	conversation.set_answer(conversation.state.answers['success'])
-	return conversation.back(context)
+	return conversation.back(context, answer='success')
 
 
 @with_admin_rights
-def bot_settings(conversation, context):
-	conversation.add_button(
-		conversation.state.extra['debug_on'] if not context.bot.debug_mode
-		else conversation.state.extra['debug_off']
-	)
-	return conversation.reply(conversation.state.texts)
+def bot_settings(state, conversation, context):
+	return conversation.reply(extra_buttons=(
+		state.extra['debug_on' if not context.bot.debug_mode else 'debug_off'],))
 
 
 @with_admin_rights
-def debug_mode(conversation, context):
+def debug_mode(state, conversation, context):
 	context.bot.switch_debug_mode()
-	conversation.set_answer(
-		conversation.state.answers['debug_on'] if context.bot.debug_mode
-		else conversation.state.answers['debug_off']
-	)
-	return conversation.back(context)
+	return conversation.back(
+		context, answer='debug_on' if context.bot.debug_mode else 'debug_off')

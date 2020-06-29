@@ -64,5 +64,5 @@ def make_payment(transaction_id, amount, account, provider):
 		if result['error']['code'] <= 123:  # error on our side
 			logger.error("Error making payment: %s", result['error']['message'])
 			raise OSError(result['error']['message'])
-		return result['error']['message'], None
+		raise ValueError(result['error']['message'])
 	return result['result']['message'], result['result']['payoutId']

@@ -2,6 +2,7 @@
 
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import Handler
+from telegram.error import BadRequest
 
 ###################
 
@@ -12,57 +13,42 @@ class Conversation:
 	def __init__(self, starting_state, user_id):
 		self.user_id = user_id
 		self.state = starting_state
+		self.banned = False
 		self.messages = []
-		self.response = {}
+
+		self.update = None
 		self.input = None
 		self.confirmed = False
 
-	def back(self, context, *, depth=1):
-		for _ in range(depth):
-			self.state = self.state.back or self.state
-		if not self.state.callback:
-			return self.reply(self.state.texts)
-		return self.state.callback(self, context)
+	def __repr__(self):
+		return f"<Conversation: {repr(self.state)}>"
 
-	def next(self, next_state, update_data):
-		self.response = {}
-		self.input = update_data
-		if next_state == '_back_':
-			self.state = self.state.back or self.state
-		elif next_state == '_main_':
-			while self.state.back:
-				self.state = self.state.back
-		elif next_state == '_confirm_':
-			self.confirmed = True
-		elif next_state in self.state.next:
-			self.state = self.state.next[next_state]
-		return self.state
-
-	def add_button(self, button):
-		self.response.setdefault('buttons', []).append(button)
-
-	def set_answer(self, answer):
-		self.response['answer'] = answer
-
-	def reply(self, text):
-		self.response['text'] = text
-		buttons = [
-			next_state.button for next_state in self.state.next.values()
-				if next_state.button
-		] + self.response.get('buttons', [])
-		if self.state.back:
-			if self.state.back.back:
-				buttons.append(self.state.back_button + self.state.main_button)
-			else:
-				buttons.append(self.state.back_button)
-		self.response['buttons'] = buttons
-		return self.response
-
-	def clear(self):
+	def back(self, context, answer=None):
+		self.input = None
 		self.confirmed = False
-		for message in self.messages:
-			message.delete()
-		self.messages.clear()
+		if answer:
+			answer = self.state.answers[answer]
+		self.state = self.state.back
+		text, buttons, back_answer = self.state(self, context)
+		return text, buttons, answer or back_answer
+
+	def reply(self, text=None, extra_buttons=(), answer=None, confirm=None):
+		buttons = []
+		if confirm:
+			buttons.append(self.state.confirm_button(confirm))
+		buttons += self.state.buttons
+		buttons += extra_buttons
+		if self.state.back:
+			buttons.append(
+				self.state.back_button if not self.state.back.back
+				else (self.state.back_button + self.state.main_button)
+			)
+		if answer:
+			try:
+				answer = self.state.answers[answer]
+			except KeyError:
+				answer = {'text': answer, 'show_alert': True}
+		return text or self.state.texts, buttons, answer
 
 
 class PrivateConversationHandler(Handler):
@@ -70,54 +56,75 @@ class PrivateConversationHandler(Handler):
 
 	def __init__(self, dialogue_tree):
 		super().__init__(callback=None)
-		self.tree = dialogue_tree
+		self.start = dialogue_tree
 		self.user_conversations = dict()
 
-	@staticmethod
-	def check_update(update):
+	def check_update(self, update):
 		if not isinstance(update, Update) or update.effective_chat.type != 'private':
+			return False
+
+		conversation = self.user_conversations.setdefault(
+			update.effective_user.id,
+			Conversation(self.start, update.effective_user.id)
+		)
+		if conversation.banned:
 			return False
 
 		# if update is from button
 		if query := update.callback_query:
-			next_state, *data = query.data.split(';')  # buttons: menu;data
-			data = "".join(data)
-			query.message.edit_reply_markup(reply_markup=None)
+			next_state, *user_input = query.data.split(';')  # buttons: menu;data
+			user_input = "".join(user_input).strip()
+			try:
+				query.message.edit_reply_markup(reply_markup=None)
+			except BadRequest:  # double click
+				return False
 
 		# else from input
 		elif message := update.effective_message:
-			next_state, data = None, message.text or message.effective_attachment
-			message.delete()
+			next_state = None
+			user_input = message.text.strip() if message.text else None
 
 		else:
 			return False
-		return (next_state, data)  # goes to parsed_update
 
-	def handle_update(self, update, dispatcher, parsed_update, context):
+		# determining next conversation state
+		if next_state == '_back_':
+			conversation.state = conversation.state.back or conversation.state
+		elif next_state == '_main_':
+			while conversation.state.back:
+				conversation.state = conversation.state.back
+		elif next_state == '_confirm_':
+			conversation.confirmed = True
+		elif next_state in conversation.state.next:
+			conversation.state = conversation.state.next[next_state]
 
-		# changing state
-		conversation = self.user_conversations.setdefault(
-			update.effective_user.id,
-			Conversation(self.tree, int(update.effective_user.id))
-		)
-		if conversation.user_id in context.bot_data.get('banlist', {}):
-			return
-		next_state = conversation.next(*parsed_update)
+		conversation.update = update
+		conversation.input = user_input
 
-		# preparing response
-		if next_state.callback:
-			response = next_state.callback(conversation, context)
-			text = response['text']
-			buttons = response.get('buttons', [])
-			if answer := response.get('answer'):
-				update.callback_query.answer(**answer)
-		else:
-			text, buttons = next_state.texts, next_state.buttons
+		return conversation
 
-		# responding
-		conversation.clear()
+	def handle_update(self, update, dispatcher, conversation, context):
+
+		# cleaning up previous messages
+		for message in conversation.messages:
+			message.delete()
+		conversation.messages.clear()
+
+		text, buttons, answer = conversation.state(conversation, context)
+
+		# sending reponse
+		if answer:
+			update.callback_query.answer(**answer)
 		update.effective_chat.send_message(
-			text,
+			text or self.state.texts,
 			reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
 			container=conversation.messages
 		)
+
+		# cleaning up
+		conversation.update = None
+		conversation.input = None
+		conversation.confirmed = False
+		if not update.callback_query:
+			update.effective_message.delete()
+		context.user_data['conversation'] = conversation

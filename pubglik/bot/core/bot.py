@@ -22,8 +22,20 @@ def promised(method):
 		if not self._msg_queue:
 			return method(self, *args, **kwargs)
 		promise = Promise(method, (self, *args), kwargs)
-		return self._msg_queue(promise, kwargs.pop('is_group', False))
+		return self._msg_queue(promise, kwargs.get('is_group', False))
 	return sender
+
+
+def partitioned(send):
+	def split_text(self, chat_id, text, reply_markup=None, **kwargs):
+		while len(text) > MAX_MESSAGE_LENGTH:
+			if (i_max := text.rfind('\n', 0, MAX_MESSAGE_LENGTH)) == -1:
+				if (i_max := text.rfind(' ', 0, MAX_MESSAGE_LENGTH)) == -1:
+					i_max = MAX_MESSAGE_LENGTH
+			send(self, chat_id, text[:i_max], reply_markup=None, **kwargs)
+			text = text[i_max + 1:]
+		return send(self, chat_id, text, reply_markup=reply_markup, **kwargs)
+	return split_text
 
 
 class Bot(PTBot):
@@ -42,23 +54,13 @@ class Bot(PTBot):
 		except RuntimeError:
 			pass
 
+	@partitioned
 	@promised
-	def send_message(self, chat_id, text, *, parse_mode=None,
-					reply_markup=None, container=None, is_group=False, **kwargs):
+	def send_message(self, chat_id, text, parse_mode=None,
+					reply_markup=None, container: list = None, **kwargs):
 		"""Sending message (in chunks if it's too big), and storing it in optional
-		`container` to delete later, after it will be sent through MessageQueue.
+		`container` to delete later, after it is processed through MessageQueue.
 		"""
-
-		while len(text) > MAX_MESSAGE_LENGTH:
-			if (i_max := text.rfind('\n', end=MAX_MESSAGE_LENGTH)) == -1:
-				i_max = text.rfind(' ', end=MAX_MESSAGE_LENGTH)
-			self.send_message(
-				chat_id, text[:i_max],
-				parse_mode=parse_mode or self.default_parse_mode,
-				container=container, is_group=is_group,
-				reply_markup=None, **kwargs
-			)
-			text = text[i_max + 1:]
 
 		try:
 			message = super().send_message(
