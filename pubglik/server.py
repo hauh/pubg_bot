@@ -1,18 +1,67 @@
-"""Recieving payments info from Unitpay."""
+"""Classes for Cherrypy web-server setup."""
 
-from logging import getLogger
+import json
+import logging
 from hashlib import sha256
 
 import cherrypy
-from psycopg2.errors import Error, UniqueViolation
+from telegram import Update
+from psycopg2.errors import UniqueViolation
 
 from pubglik import database
 from pubglik.config import unitpay_secret as SECRET
-from pubglik.bot.texts import got_money as GOT_MONEY
+from pubglik.texts import (
+	settings_names as SETTINGS_NAMES,
+	game_not_set as DEFAULT,
+	got_money as GOT_MONEY
+)
 
 ##############################
 
-logger = getLogger('unitpay_hook')
+logger = logging.getLogger('webserver')
+
+
+@cherrypy.expose
+class GetGames():
+	"""Returning list of not yet finished games at /api/games."""
+
+	_cp_defaults = {
+		'tools.response_headers.on': True,
+		'tools.response_headers.headers': [
+			('Access-Control-Allow-Origin', '*'),
+		]
+	}
+
+	@cherrypy.tools.json_out()
+	@cherrypy.tools.accept(media='application/json')
+	def GET(self):
+		try:
+			return [
+				[SETTINGS_NAMES.get(data, data) if data else DEFAULT for data in game]
+					for game in database.get_games()
+			]
+		except Exception:
+			raise cherrypy.HTTPError(500)
+
+
+@cherrypy.expose
+class TelegramHook:
+	"""Gets Telegram updates, and puts them into bot's `UpdateQueue`."""
+
+	def __init__(self, telegram_dispatcher):
+		self.tg = telegram_dispatcher
+
+	def POST(self):
+		data = json.loads(cherrypy.request.body.read())
+		try:
+			update = Update.de_json(data, self.tg.bot)
+		except ValueError as err:
+			logger.error(
+				"Non-telegram update recieved:\n%s",
+				data, exc_info=(type(err), err, None)
+			)
+		else:
+			self.tg.update_queue.put(update)
 
 
 @cherrypy.expose
@@ -46,11 +95,11 @@ class UnitpayHook:
 				new_balance = database.change_balance(
 					user_id, amount, 'unitpay', ext_id=int(data['params[unitpayId]']))
 
-			except UniqueViolation:  # to-do: add unique constraint to ext id
+			except UniqueViolation:
 				logger.warning("Ignoring duplicate payment")
 				return {'result': {'message': "Duplicate payment"}}
 
-			except Error as err:
+			except Exception as err:  # pylint: disable=broad-except
 				logger.critical(
 					"User's payment not saved!\n%s", data,
 					exc_info=(type(err), err, None)
@@ -58,9 +107,7 @@ class UnitpayHook:
 				self.tg.bot.notify_admins("Database error!!!")
 				return {'result': {'message': "Database error :("}}
 
-			else:
-				self.tg.user_data[user_id]['balance'] = new_balance
-				self.tg.bot.send_message(
-					user_id, GOT_MONEY.format(amount, new_balance))
+			self.tg.user_data[user_id]['balance'] = new_balance
+			self.tg.bot.send_message(user_id, GOT_MONEY.format(amount, new_balance))
 
 		return {'result': {'message': "OK"}}

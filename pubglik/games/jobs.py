@@ -4,12 +4,12 @@ from logging import getLogger
 from datetime import datetime, timedelta
 
 from pubglik import database
+from pubglik import texts
 from pubglik.config import (
 	times as TIMES,
 	timezone as TIMEZONE,
 	max_slots as MAX_SLOTS
 )
-from pubglik.bot import texts
 from .slot import Slot
 
 ###############

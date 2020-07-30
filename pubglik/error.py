@@ -2,7 +2,7 @@
 
 import logging
 
-from ..texts import error as ERROR
+from .texts import error as ERROR
 
 ##############################
 

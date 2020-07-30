@@ -1,4 +1,4 @@
-"""Custom Handler to work with tree-like menu dict with texts and callbacks"""
+"""Custom `Handler`, builds menu from tree and keeps track of conversations."""
 
 from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import Handler
@@ -7,8 +7,44 @@ from telegram.error import BadRequest
 ###################
 
 
+class State:
+	"""Node of dialogue tree with menu options appropriate to that node."""
+
+	main_button = back_button = confirm_button = None
+
+	@classmethod
+	def build_tree(cls, menu_tree, menu_data):
+		cls.main_button = menu_data['buttons']['_main_']
+		cls.back_button = menu_data['optional_buttons']['_back_']
+		cls.confirm_button = staticmethod(menu_data['optional_buttons']['_confirm_'])
+		return cls(menu_tree, '_main_', None, menu_data)
+
+	def __init__(self, current_menu, key, previous_state, menu_data):
+		self.key = key
+		self.back = previous_state
+		self.texts = menu_data['texts'].get(key, "MISSING TEXT")
+		self.answers = menu_data['answers'].get(key)
+		self.callback = menu_data['callbacks'].get(key)
+		self.extra = menu_data['optional_buttons'].get(key, {})
+		self.buttons = []
+		self.next = {}
+		for next_key, submenu in current_menu.items():
+			self.next[next_key] = State(submenu, next_key, self, menu_data)
+			if next_button := menu_data['buttons'].get(next_key):
+				self.buttons.append(next_button)
+
+	def __call__(self, conversation, context):
+		if self.callback:
+			return self.callback(self, conversation, context)
+		return conversation.reply(self.texts)
+
+	def __repr__(self):
+		return f"State '{self.key}'"
+
+
 class Conversation:
-	"""Holds `State` of conversation with user, response, and old messages"""
+	"""Holds `State` of conversation with user, and processes `State`s callback
+	with new data from `Update`."""
 
 	def __init__(self, starting_state, user_id):
 		self.user_id = user_id
@@ -52,14 +88,31 @@ class Conversation:
 
 
 class PrivateConversationHandler(Handler):
-	"""Handler for private conversations, duh."""
+	"""Processes updates from users and keeps track of `Conversations` with them.
+	On `__init__` creates tree of menu `State`s, and for each new user creates
+	`Conversation` for them to hold their current `State`.
 
-	def __init__(self, dialogue_tree):
+	Attributes:
+		start (State): Starting `State` of menu tree.
+		user_conversations (dict): The `dict` with all ongoing `Conversations`.
+	"""
+
+	def __init__(self, menu_tree, menu_data):
+		"""
+		Args:
+			menu_tree (dict): A (nested) `dict` with menu structure.
+			menu_data (dict): A `dict` with 'callbacks', 'texts', 'answers',
+				'buttons', and 'optional_buttons' keys for `States` of menu tree.
+		"""
+
 		super().__init__(callback=None)
-		self.start = dialogue_tree
+		self.start = State.build_tree(menu_tree, menu_data)
 		self.user_conversations = dict()
 
 	def check_update(self, update):
+		"""Checks if incoming update is for this handler to handle. If it is,
+		advances `State` of `Conversation`."""
+
 		if not isinstance(update, Update) or update.effective_chat.type != 'private':
 			return False
 
@@ -104,6 +157,7 @@ class PrivateConversationHandler(Handler):
 		return conversation
 
 	def handle_update(self, update, dispatcher, conversation, context):
+		"""Cleans chat, gets next message from `State`, and sends it to user."""
 
 		# cleaning up previous messages
 		for message in conversation.messages:

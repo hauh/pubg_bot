@@ -1,4 +1,4 @@
-"""Postgress database operations"""
+"""Postgress database operations."""
 
 from logging import getLogger
 
@@ -199,3 +199,10 @@ def withdraw_money(user_id, amount):
 				logger.info("User id %s withdrew %s", user_id, amount)
 				connection.commit()
 				yield cursor.fetchone()['balance']
+
+
+# api
+@with_connection
+def get_games(cursor):
+	cursor.execute(queries.get_games)
+	return cursor.fetchall()

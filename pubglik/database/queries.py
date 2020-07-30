@@ -1,4 +1,4 @@
-"""Postgress database queries"""
+"""Postgress database queries."""
 
 init_db = (
 	"""
@@ -44,7 +44,7 @@ init_db = (
 		user_id		BIGINT NOT NULL,
 		amount		INT NOT NULL,
 		reason		TEXT NOT NULL,
-		external_id	BIGINT,
+		external_id	BIGINT UNIQUE,
 		match_id	INT,
 		date		TIMESTAMPTZ,
 		FOREIGN KEY (user_id) REFERENCES users (id),
@@ -86,7 +86,7 @@ get_balance =\
 	"""
 get_balance_history =\
 	"""
-	SELECT * FROM transactions WHERE user_id = %s
+	SELECT * FROM transactions WHERE user_id = %s ORDER BY date
 	"""
 
 # games
@@ -140,4 +140,12 @@ change_balance =\
 update_transaction_id =\
 	"""
 	UPDATE transactions SET external_id = %s WHERE id = %s
+	"""
+
+# api
+get_games =\
+	"""
+	SELECT TO_CHAR(time, 'HH24:MI'), bet, view, type, mode
+	FROM MATCHES WHERE finished = false
+	ORDER BY time
 	"""

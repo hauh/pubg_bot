@@ -64,11 +64,7 @@ times = {
 max_slots = 24
 max_players = 70
 enough_players = 70
-bets = {
-	'min': 10,
-	'max': 100,
-	'step': 10
-}
+bets = range(10, 101, 10)
 prizes = {
 	'survival_easy': {
 		'kills': 0,

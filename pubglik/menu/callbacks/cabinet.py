@@ -6,7 +6,7 @@ from telegram import ChatAction
 from psycopg2.errors import UniqueViolation
 
 from pubglik import database
-from pubglik.bot.misc import unitpay
+from . import _unitpay
 
 ##############################
 
@@ -87,10 +87,10 @@ def add_funds(state, conversation, context, validate=False):
 		return re.match(r'^[1-9][0-9]{1,4}$', conversation.input)
 
 	conversation.update.effective_chat.send_action(ChatAction.TYPING)
-	button_url = unitpay.invoice_url(str(conversation.user_id), conversation.input)  # noqa
+	pay_url = _unitpay.invoice_url(str(conversation.user_id), conversation.input)
 	return conversation.reply(
 		text=state.texts['input'],
-		extra_buttons=(state.extra['goto_payment'](conversation.input, button_url),)
+		extra_buttons=(state.extra['goto_payment'](conversation.input, pay_url),)
 	)
 
 
@@ -115,7 +115,7 @@ def withdraw_money(state, conversation, context):
 	# checking commission
 	if not (total := context.user_data.get('withdrawal_total')):
 		conversation.update.effective_chat.send_action(ChatAction.TYPING)
-		if (commission := unitpay.check_commission(details['provider'])) is None:
+		if (commission := _unitpay.check_commission(details['provider'])) is None:
 			return conversation.back(context, answer='error')
 
 		total = round(details['amount'] * (1 + commission / 100))
@@ -138,7 +138,7 @@ def withdraw_money(state, conversation, context):
 	transaction = database.withdraw_money(conversation.user_id, total)  # generat.
 	transaction_id = next(transaction)
 	try:
-		answer, payment_id = unitpay.make_payment(transaction_id, **details)
+		answer, payment_id = _unitpay.make_payment(transaction_id, **details)
 
 	except OSError as err:  # connection error or problems with our account
 		transaction.send(None)
@@ -177,9 +177,9 @@ def set_withdrawal_account(state, conversation, context, validate=False):
 	details = context.user_data.get('withdrawal_details', {})
 	if validate:
 		if provider := details.get('provider'):
-			return re.match(unitpay.providers.get(provider), conversation.input)
+			return re.match(_unitpay.providers.get(provider), conversation.input)
 		return any(re.match(account_format, conversation.input)
-				for account_format in unitpay.providers.values())
+				for account_format in _unitpay.providers.values())
 
 	details['account'] = conversation.input
 	return conversation.back(context)

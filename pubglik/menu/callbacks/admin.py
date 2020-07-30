@@ -6,7 +6,7 @@ from functools import partial
 from telegram import ChatAction, Document
 
 from pubglik import database
-from pubglik.bot.misc import excel
+from . import _excel
 
 ##############################
 
@@ -129,16 +129,16 @@ def set_winners(state, conversation, context, game):
 				state.texts['input'].format(str(game), game.room_id))
 
 		# then trying to read xlsx file
-		if not (results := excel.read_table(attachement.get_file())):
+		if not (results := _excel.read_table(attachement.get_file())):
 			return conversation.reply(state.texts['bad_file'])
 
 		# reading file for places and kills
 		try:
 			if hasattr(game.game, 'places'):
-				for row, user_id, place in excel.get_winners(results):
+				for row, user_id, place in _excel.get_winners(results):
 					game.game.set_player_place(user_id, place)
 			if hasattr(game.game, 'kills'):
-				for row, user_id, kills in excel.get_killers(results):
+				for row, user_id, kills in _excel.get_killers(results):
 					game.game.set_player_kills(user_id, kills)
 		except ValueError as err:
 			return reply_with_excel_button(state.texts[err.args[0]]. format(row))
@@ -164,7 +164,7 @@ def set_winners(state, conversation, context, game):
 def generate_table(state, conversation, context, game):
 	conversation.update.effective_chat.send_action(ChatAction.TYPING)
 	conversation.update.effective_chat.send_document(
-		excel.create_table(database.get_players(game.slot_id)),
+		_excel.create_table(database.get_players(game.slot_id)),
 		filename=f'{game.pubg_id}.xlsx'
 	)
 	return conversation.back(context)

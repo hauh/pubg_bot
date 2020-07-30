@@ -19,10 +19,10 @@ logger = getLogger('bot')
 
 def promised(method):
 	def sender(self, *args, **kwargs):
-		if not self._msg_queue:
+		if not self.msg_queue:
 			return method(self, *args, **kwargs)
 		promise = Promise(method, (self, *args), kwargs)
-		return self._msg_queue(promise, kwargs.get('is_group', False))
+		return self.msg_queue(promise, kwargs.get('is_group', False))
 	return sender
 
 
@@ -44,13 +44,13 @@ class Bot(PTBot):
 	def __init__(self, *args, admin_chat, msg_queue, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.admin_chat = admin_chat
-		self._msg_queue = msg_queue
+		self.msg_queue = msg_queue
 		self.debug_mode = False
 		self.default_parse_mode = ParseMode.MARKDOWN
 
 	def __del__(self):
 		try:
-			self._msg_queue.stop()
+			self.msg_queue.stop()
 		except RuntimeError:
 			pass
 
