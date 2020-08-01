@@ -22,7 +22,6 @@ webhook_kwargs = {
 proxy = os.getenv('PROXY')
 database_url = os.environ['DATABASE']
 debug_server = "http://localhost:7777/"
-debug_chat = os.environ['DEBUG_CHAT']
 
 # payments
 unitpay_secret = os.environ['UNITPAY_SECRET']
