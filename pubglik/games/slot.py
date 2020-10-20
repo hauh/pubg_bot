@@ -6,7 +6,7 @@ from pubglik.config import (
 	enough_players as ENOUGH_PLAYERS
 )
 from . import games
-from ..texts import settings_names as NAMES
+from ..texts import settings_names, short_names
 
 ##############################
 
@@ -36,9 +36,9 @@ class Slot:
 			"🕑{time}👥{players}🎮{type}, {mode}👁{view}💲{bet}".format(
 				time=self.time.strftime('%H:%M'),
 				players=len(self.players),
-				type=NAMES['_short_'].get(self.settings['type'])
-					or NAMES['type'].get(self.settings['type'], "---"),
-				mode=NAMES['mode'].get(self.settings['mode'], "---"),
+				type="---" if not (_type := self.settings['type'])
+					else short_names.get(_type) or settings_names.get(_type),
+				mode=settings_names.get(self.settings['mode'], "---"),
 				view=self.settings['view'] or "---",
 				bet=self.settings['bet'] or "---"
 			)
