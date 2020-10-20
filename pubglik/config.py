@@ -11,13 +11,8 @@ import pytz
 # bot
 bot_token = os.environ['TG_TOKEN']
 webhook_kwargs = {
-	'listen': '0.0.0.0',
-	'port': 8443,
-	'url_path': f'/telegram/{bot_token}',
-	'key': os.getenv('SSL_KEY'),
-	'cert': os.getenv('SSL_CERT'),
 	'url': f"{os.getenv('SERVER_ADDRESS')}:8443/telegram/{bot_token}",
-	# 'allowed_updates': ['message', 'callback_query']
+	'certificate': open(os.getenv('CERTIFICATE'), 'rb'),
 }
 proxy = os.getenv('PROXY')
 database_url = os.environ['DATABASE']
