@@ -159,16 +159,17 @@ class PrivateConversationHandler(Handler):
 	def handle_update(self, update, dispatcher, conversation, context):
 		"""Cleans chat, gets next message from `State`, and sends it to user."""
 
+		text, buttons, answer = conversation.state(conversation, context)
+
+		if answer:
+			update.callback_query.answer(**answer)
+
 		# cleaning up previous messages
 		for message in conversation.messages:
 			message.delete()
 		conversation.messages.clear()
 
-		text, buttons, answer = conversation.state(conversation, context)
-
 		# sending reponse
-		if answer:
-			update.callback_query.answer(**answer)
 		update.effective_chat.send_message(
 			text or self.state.texts,
 			reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
