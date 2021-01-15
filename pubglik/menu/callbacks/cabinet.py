@@ -1,11 +1,11 @@
 """User profile management"""
 
 import re
-
-from telegram import ChatAction
-from psycopg2.errors import UniqueViolation
+from sqlite3 import IntegrityError
 
 from pubglik import database
+from telegram import ChatAction
+
 from . import _unitpay
 
 ##############################
@@ -60,7 +60,7 @@ def set_pubg_username(state, conversation, context, validate=False):
 
 	try:
 		database.update_user(conversation.user_id, pubg_username=conversation.input)
-	except UniqueViolation:
+	except IntegrityError:
 		return conversation.reply(state.texts['input'], answer='duplicate')
 
 	context.user_data['pubg_username'] = conversation.input
@@ -74,7 +74,7 @@ def set_pubg_id(state, conversation, context, validate=False):
 
 	try:
 		database.update_user(conversation.user_id, pubg_id=int(conversation.input))
-	except UniqueViolation:
+	except IntegrityError:
 		return conversation.reply(state.texts['input'], answer='duplicate')
 
 	context.user_data['pubg_id'] = int(conversation.input)
@@ -191,7 +191,7 @@ def set_withdrawal_amount(state, conversation, context, validate=False):
 		return re.match(r'^[1-9][0-9]{1,4}$', conversation.input)
 
 	if (amount := int(conversation.input)) > context.user_data['balance']:
-		return conversation.reply(answer='too_much')
+		return conversation.back(context, answer='too_much')
 
 	context.user_data['withdrawal_details']['amount'] = amount
 	context.user_data.pop('withdrawal_total', None)

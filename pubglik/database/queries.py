@@ -1,14 +1,14 @@
-"""Postgress database queries."""
+"""SQLite database queries."""
 
 init_db = (
 	"""
-	SET timezone = 'Europe/Moscow'
+	PRAGMA foreign_keys = 1
 	""",
 	"""
 	CREATE TABLE IF NOT EXISTS users (
-		id				BIGINT PRIMARY KEY,
+		id				INTEGER PRIMARY KEY,
 		username		TEXT,
-		pubg_id			BIGINT UNIQUE,
+		pubg_id			INT UNIQUE,
 		pubg_username	TEXT UNIQUE,
 		admin			BOOL DEFAULT false,
 		banned			BOOL DEFAULT false
@@ -16,20 +16,20 @@ init_db = (
 	""",
 	"""
 	CREATE TABLE IF NOT EXISTS matches (
-		id			SERIAL PRIMARY KEY,
+		id			INTEGER PRIMARY KEY,
 		time		TIMESTAMPTZ NOT NULL,
 		type		TEXT,
 		mode		TEXT,
 		view		TEXT,
 		bet			INT,
-		pubg_id		BIGINT,
+		pubg_id		INT,
 		room_pass	TEXT,
 		finished	BOOL DEFAULT false
 	)
 	""",
 	"""
 	CREATE TABLE IF NOT EXISTS players_in_matches (
-		user_id		BIGINT,
+		user_id		INT,
 		match_id	INT,
 		place		INT,
 		kills		INT,
@@ -40,11 +40,11 @@ init_db = (
 	""",
 	"""
 	CREATE TABLE IF NOT EXISTS transactions (
-		id			SERIAL,
-		user_id		BIGINT NOT NULL,
+		id			INT PRIMARY KEY,
+		user_id		INT NOT NULL,
 		amount		INT NOT NULL,
 		reason		TEXT NOT NULL,
-		external_id	BIGINT UNIQUE,
+		external_id	INT UNIQUE,
 		match_id	INT,
 		date		TIMESTAMPTZ,
 		FOREIGN KEY (user_id) REFERENCES users (id),
@@ -56,7 +56,7 @@ init_db = (
 # users
 save_user =\
 	"""
-	INSERT INTO users (id, username) VALUES (%s, %s) RETURNING *
+	INSERT INTO users (id, username) VALUES (?, ?)
 	"""
 get_user =\
 	"""
@@ -69,7 +69,7 @@ get_user =\
 			FROM transactions WHERE user_id = users.id
 		) AS balance
 	FROM users
-	WHERE users.id = %s
+	WHERE users.id = ?
 	"""
 find_user =\
 	"""
@@ -77,30 +77,30 @@ find_user =\
 	"""
 update_user =\
 	"""
-	UPDATE users SET {} = %s WHERE id = %s
+	UPDATE users SET {} = ? WHERE id = ?
 	"""
 get_balance =\
 	"""
 	SELECT COALESCE(SUM(amount), 0) AS balance
-	FROM transactions WHERE user_id = %s
+	FROM transactions WHERE user_id = ?
 	"""
 get_balance_history =\
 	"""
-	SELECT * FROM transactions WHERE user_id = %s ORDER BY date
+	SELECT * FROM transactions WHERE user_id = ? ORDER BY date
 	"""
 
 # games
 create_slot =\
 	"""
-	INSERT INTO matches (time) VALUES (%s) RETURNING id
+	INSERT INTO matches (time) VALUES (?)
 	"""
 update_slot =\
 	"""
-	UPDATE matches SET {} WHERE id = %s
+	UPDATE matches SET {} WHERE id = ?
 	"""
 delete_slot =\
 	"""
-	DELETE FROM matches WHERE id = %s
+	DELETE FROM matches WHERE id = ?
 	"""
 load_slots =\
 	"""
@@ -109,43 +109,43 @@ load_slots =\
 load_players =\
 	"""
 	SELECT * FROM users WHERE id IN
-		(SELECT user_id FROM players_in_matches WHERE match_id = %s)
+		(SELECT user_id FROM players_in_matches WHERE match_id = ?)
 	"""
 join_slot =\
 	"""
-	INSERT INTO players_in_matches (match_id, user_id) VALUES (%s, %s)
+	INSERT INTO players_in_matches (match_id, user_id) VALUES (?, ?)
 	"""
 leave_slot =\
 	"""
-	DELETE FROM {} WHERE (match_id = %s) AND (user_id = %s)
+	DELETE FROM {} WHERE (match_id = ?) AND (user_id = ?)
 	"""
 get_players =\
 	"""
 	SELECT pubg_id, pubg_username, id, username FROM users
-	WHERE users.id IN (SELECT user_id FROM players_in_matches WHERE match_id = %s)
+	WHERE users.id IN (SELECT user_id FROM players_in_matches WHERE match_id = ?)
 	"""
 set_player_result =\
 	"""
-	UPDATE players_in_matches SET {} = %s
-		WHERE match_id = %s AND user_id = %s
+	UPDATE players_in_matches SET {} = ?
+		WHERE match_id = ? AND user_id = ?
 	"""
 
 # balances
 change_balance =\
 	"""
-	INSERT INTO transactions (user_id, amount, reason, external_id, match_id, date)
-	VALUES (%s, %s, %s, %s, %s, NOW())
-	RETURNING id
-	"""  # noqa
+	INSERT INTO transactions
+		(user_id, amount, reason, external_id, match_id, date)
+	VALUES (?, ?, ?, ?, ?, date('now'))
+	"""
 update_transaction_id =\
 	"""
-	UPDATE transactions SET external_id = %s WHERE id = %s
+	UPDATE transactions SET external_id = ? WHERE id = ?
 	"""
 
 # api
 get_games =\
 	"""
-	SELECT TO_CHAR(time, 'HH24:MI'), bet, view, type, mode
+	SELECT time, bet, view, type, mode
 	FROM MATCHES WHERE finished = false
 	ORDER BY time
 	"""

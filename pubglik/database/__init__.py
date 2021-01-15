@@ -1,3 +1,3 @@
-"""Database management package"""
+"""Database management."""
 
 from .actions import *
