@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  bot:
+    container_name: 'pubglik_bot'
+    build: .
+    image: 'bots/pubglik'
+    volumes:
+      - ./data:/opt/pubglik_bot/data
+    env_file: '.env'
+    restart: always
