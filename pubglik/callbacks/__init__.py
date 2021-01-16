@@ -1,4 +1,4 @@
-"""Callbacks for conversation with user"""
+"""Callbacks for user conversation to use with PrivateConversationHandler."""
 
 from . import main
 from . import admin
@@ -7,7 +7,7 @@ from . import tournaments
 
 ##############################
 
-callbacks = {
+conversation_callbacks = {
 	# ########## main ########## #
 	'_main_': main.start,
 

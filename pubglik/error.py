@@ -2,7 +2,7 @@
 
 import logging
 
-from .texts import error as ERROR
+from pubglik.interface.texts import error as ERROR
 
 ##############################
 

@@ -4,7 +4,7 @@ from logging import getLogger
 from datetime import datetime, timedelta
 
 from pubglik import database
-from pubglik import texts
+from pubglik.interface import texts
 from pubglik.config import (
 	times as TIMES,
 	timezone as TIMEZONE,

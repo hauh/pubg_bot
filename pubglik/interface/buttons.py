@@ -70,7 +70,7 @@ optional_buttons = {
 		"✔ Подтвердить", callback_data=f'_confirm_;{value}')],
 	'_main_': {
 		'admin': [InlineKeyboardButton("Управление", callback_data='admin')],
-		'chat': [InlineKeyboardButton("Боевой чат", url=config.battle_chat)]
+		'chat': [InlineKeyboardButton("Developed by", url=config.battle_chat)]
 	},
 	'revoke_admin': {
 		'revoke': lambda admin_id, admin_username: [InlineKeyboardButton(

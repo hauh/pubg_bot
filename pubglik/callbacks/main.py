@@ -9,9 +9,17 @@ def start(state, conversation, context):
 	# checking who's there
 	username = conversation.update.effective_user.username
 	if not (user := database.get_user(conversation.user_id)):
-		user = database.save_user(conversation.user_id, username)
-		user['balance'] = 0
-		user['games_played'] = 0
+		database.save_user(conversation.user_id, username)
+		user = {
+			'id': conversation.user_id,
+			'pubg_id': None,
+			'username': username,
+			'pubg_username': None,
+			'balance': 0,
+			'games_played': 0,
+			'admin': False,
+			'banned': False,
+		}
 	if user['banned']:
 		conversation.banned = True
 		return conversation.reply(state.texts['banned'])

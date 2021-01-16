@@ -1,12 +1,11 @@
 """Slot class collects players, stores game info and distributes rewards"""
 
 from pubglik import database
-from pubglik.config import (
-	max_players as MAX_PLAYERS,
-	enough_players as ENOUGH_PLAYERS
-)
+from pubglik.config import enough_players as ENOUGH_PLAYERS
+from pubglik.config import max_players as MAX_PLAYERS
+from pubglik.interface.texts import settings_names, short_names
+
 from . import games
-from ..texts import settings_names, short_names
 
 ##############################
 

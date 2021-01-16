@@ -9,22 +9,17 @@ import pytz
 ##############################
 
 # bot
-bot_token = os.environ['TG_TOKEN']
-webhook_kwargs = {
-	'url': f"{os.getenv('SERVER_ADDRESS')}:8443/telegram/{bot_token}",
-	'certificate': open(os.getenv('CERTIFICATE'), 'rb'),
-}
+bot_token = os.environ['TOKEN']
 proxy = os.getenv('PROXY')
-database_url = os.environ['DATABASE']
 debug_server = "http://localhost:7777/"
 
 # payments
-unitpay_secret = os.environ['UNITPAY_SECRET']
-unitpay_key = os.environ['UNITPAY_KEY']
+unitpay_secret = 'some_secret'  # os.environ['UNITPAY_SECRET']
+unitpay_key = 'some_key'  # os.environ['UNITPAY_KEY']
 unitpay_auth_params = {
-	'params[projectId]': os.environ['UNITPAY_PROJECT_ID'],
-	'params[login]': os.environ['UNITPAY_EMAIL'],
-	'params[secretKey]': os.environ['UNITPAY_API_KEY']
+	'params[projectId]': 'some_project_id',  # os.environ['UNITPAY_PROJECT_ID']
+	'params[login]': 'some_login',  # os.environ['UNITPAY_EMAIL'],
+	'params[secretKey]': 'some_api_key'  # os.environ['UNITPAY_API_KEY']
 }
 unitpay_url = f"https://unitpay.money/pay/{unitpay_key}"
 unitpay_api = "https://unitpay.money/api"
@@ -43,10 +38,9 @@ logging.basicConfig(
 )
 
 # management
-if admin_id := os.getenv('ADMIN_ID'):
-	admin_id = [int(i) for i in admin_id.split(',')]
-admin_chat = os.environ['ADMIN_CHAT']
-battle_chat = os.environ['CHAT_URL']
+admin_id = [int(os.environ['ADMIN_ID'])]
+admin_chat = admin_id[0]  # os.environ['ADMIN_CHAT']
+battle_chat = 'https://t.me/snapcaster'  # os.environ['CHAT_URL']
 
 # tournaments
 timezone = pytz.timezone('Europe/Moscow')

@@ -1,31 +1,26 @@
-"""Starting HTTPS server, database connections, and bot iteslf."""
+"""Running bot."""
 
 import sys
-from queue import Queue
 from logging import getLogger
-from threading import Thread
-from time import sleep
-from functools import partial
+from sqlite3 import DatabaseError
 
-import cherrypy
-from telegram.ext import Dispatcher, JobQueue
+from telegram.ext import Updater
 from telegram.ext.messagequeue import MessageQueue
 from telegram.utils.request import Request
 
-from . import database
-from . import games
-from . import config
-from .error import error
-from .menu import menu_tree, menu_data
+from . import config, database, games
+from .callbacks import conversation_callbacks
 from .core import Bot, PrivateConversationHandler
-from .server import GetGames, TelegramHook, UnitpayHook
+from .error import error
+from .interface import answers, buttons, messages, optional_buttons
+from .menutree import menu_tree
 
 ####################################
 
 logger = getLogger('main')
 
-dispatcher = Dispatcher(
-	Bot(
+updater = Updater(
+	bot=Bot(
 		config.bot_token,
 		admin_chat=config.admin_chat,
 		msg_queue=MessageQueue(
@@ -38,69 +33,41 @@ dispatcher = Dispatcher(
 			proxy_url=config.proxy if config.proxy else None
 		)
 	),
-	update_queue=Queue(),
-	job_queue=JobQueue(),
-	use_context=True
 )
 
 
-def connect_database():
+def main():
 	try:
 		database.prepare_DB()
-	except Exception as err:  # pylint: disable=broad-except
-		logger.critical(
-			"Database connection failed with:",
-			exc_info=(type(err), err, None)
-		)
+	except DatabaseError:
 		sys.exit(-1)
 
+	dispatcher = updater.dispatcher
 
-def start_server():
-	cherrypy.config.update('server.conf')
-	mount = partial(
-		cherrypy.tree.mount,
-		config={'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()}}
-	)
-	mount(GetGames(), '/api/games')
-	mount(UnitpayHook(dispatcher), f'/unitpay/{config.unitpay_key}')
-	mount(TelegramHook(dispatcher), f'/telegram/{config.bot_token}')
-	cherrypy.engine.start()
-
-
-def activate_bot():
-	dispatcher.bot.set_webhook(**config.webhook_kwargs)
-
-	dispatcher.add_handler(PrivateConversationHandler(menu_tree, menu_data))
+	dispatcher.add_handler(PrivateConversationHandler(
+		menu_tree,
+		menu_data={
+			'callbacks': conversation_callbacks,
+			'texts': messages,
+			'buttons': buttons,
+			'optional_buttons': optional_buttons,
+			'answers': answers
+		}
+	))
 	dispatcher.add_error_handler(error)
 
-	dispatcher.job_queue.set_dispatcher(dispatcher)
-	dispatcher.job_queue.run_once(games.restore_state, 0)
-	dispatcher.job_queue.run_repeating(games.check_slots_and_games, 300, first=60)
+	updater.job_queue.set_dispatcher(dispatcher)
+	updater.job_queue.run_once(games.restore_state, 0)
+	updater.job_queue.run_repeating(games.check_slots_and_games, 300, first=60)
 
-	dispatcher.job_queue.start()
-	dispatcher.bot.msg_queue.start()
-	dispatcher.start()
+	updater.bot.msg_queue.start()
+	updater.start_polling()
+	logger.info("Bot started!")
+
+	updater.idle()
+	updater.bot.msg_queue.stop()
+	logger.info('Bye!')
 
 
-logger.info('Connecting to database...')
-connect_database()
-
-logger.info('Starting server...')
-start_server()
-
-logger.info('Activating bot...')
-Thread(target=activate_bot, name='dispatcher').start()
-
-logger.info('All good!')
-try:
-	while True:
-		sleep(1)
-except KeyboardInterrupt:
-	logger.info('Deactivating bot...')
-	dispatcher.stop()
-	dispatcher.bot.msg_queue.stop()
-	dispatcher.job_queue.stop()
-	logger.info('Stopping server...')
-	cherrypy.engine.exit()
-
-logger.info('Bye!')
+if __name__ == '__main__':
+	main()
