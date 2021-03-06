@@ -1,14 +1,12 @@
 """Custom bot with Message Queue for avoiding flood, and logging exceptions."""
 
-# pylint: disable=protected-access,attribute-defined-outside-init
-
 from logging import getLogger
 
 from telegram import ParseMode
 from telegram.bot import Bot as PTBot
-from telegram.utils.promise import Promise
-from telegram.error import BadRequest
 from telegram.constants import MAX_MESSAGE_LENGTH
+from telegram.error import BadRequest
+from telegram.utils.promise import Promise
 
 from .debug_mode import TelegramRequestWrapper
 
@@ -102,6 +100,7 @@ class Bot(PTBot):
 
 	def switch_debug_mode(self):
 		"""Wraps original Request, failed requests will be sent to debug server"""
+		# pylint: disable=attribute-defined-outside-init
 		if self.debug_mode:
 			self._request = self._request.saved_handler
 			logger.info('Debug mode turned off')

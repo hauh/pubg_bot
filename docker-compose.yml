@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   bot:
@@ -6,6 +6,6 @@ services:
     build: .
     image: 'bots/pubglik'
     volumes:
-      - ./data:/opt/pubglik_bot/data
+      - ./data:/opt/app/data
     env_file: '.env'
     restart: always

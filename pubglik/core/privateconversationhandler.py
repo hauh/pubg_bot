@@ -1,8 +1,8 @@
 """Custom `Handler`, builds menu from tree and keeps track of conversations."""
 
-from telegram import Update, InlineKeyboardMarkup
-from telegram.ext import Handler
+from telegram import InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
+from telegram.ext import Handler
 
 ###################
 
@@ -170,7 +170,8 @@ class PrivateConversationHandler(Handler):
 		conversation.messages.clear()
 
 		# sending reponse
-		update.effective_chat.send_message(
+		dispatcher.bot.send_message(
+			update.effective_chat.id,
 			text or self.state.texts,
 			reply_markup=InlineKeyboardMarkup(buttons) if any(buttons) else None,
 			container=conversation.messages
