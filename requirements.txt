@@ -20,6 +20,6 @@ six==1.15.0
 tempora==4.0.1
 tornado==6.1
 tzlocal==2.1
-ujson==4.0.2
+ujson==5.4.0
 urllib3==1.26.3
 zc.lockfile==2.0
